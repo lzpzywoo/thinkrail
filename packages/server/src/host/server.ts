@@ -36,6 +36,7 @@ import {
 	refreshSubagentConcurrency,
 	refreshSubagentTools,
 	setAgentReviewEnabledResolver,
+	setCustomProviderPublisher,
 	setDisabledExtensionsResolver,
 	setExtUiPublisher,
 	setMcpLoginPublisher,
@@ -869,6 +870,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<R
 	});
 	setJbcentralChangedPublisher(publishProviderChanged);
 	setLogoutPublisher(publishProviderChanged);
+	setCustomProviderPublisher(publishProviderChanged);
 	setModelContextPublisher(publishProviderChanged);
 	setModelListingPublisher(publishProviderChanged);
 
@@ -925,6 +927,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<R
 		setFeedbackPublisher(null);
 		configureSurveySource(null);
 		setSettingsPublisher(null);
+		setCustomProviderPublisher(null);
 		setModelContextPublisher(null);
 		setModelListingPublisher(null);
 		setJbcentralAppliedPublisher(() => {});

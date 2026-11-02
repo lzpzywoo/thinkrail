@@ -59,6 +59,29 @@ describe("buildProviderReport", () => {
 		]);
 	});
 
+	test("custom providers are marked with custom: true and preserve configured state", () => {
+		const report = buildProviderReport(
+			sources({
+				modelProviderIds: new Set(["custom-deepseek"]),
+				availableProviders: new Set(["custom-deepseek"]),
+				customProviders: new Set(["custom-deepseek"]),
+				providerAuth: () => ({ source: "models_json_key" }),
+				hasAuth: () => true,
+			}),
+		);
+		expect(report.providers).toEqual([
+			{
+				id: "custom-deepseek",
+				name: "custom-deepseek",
+				configured: true,
+				custom: true,
+				kind: "api-key",
+				detail: "models.json",
+				canApiKey: true,
+			},
+		]);
+	});
+
 	test("Central attribution overrides provider auth detail without changing ordinary rows", () => {
 		const report = buildProviderReport(
 			sources({

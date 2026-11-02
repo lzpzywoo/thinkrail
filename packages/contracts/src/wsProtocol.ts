@@ -8,6 +8,8 @@ import type {
 	BranchStatus,
 	ChangeReceipt,
 	CompletionDelivery,
+	CustomOpenAiProviderInput,
+	CustomOpenAiProviderSummary,
 	DelegationRunStatus,
 	DetectedAccount,
 	DiffStats,
@@ -128,7 +130,8 @@ export type TemplateReadLocation =
 	| { projectId: string; workspaceId?: never }
 	| { workspaceId?: never; projectId?: never };
 
-export const PROTOCOL_VERSION = 98;
+export const PROTOCOL_VERSION = 99;
+export const CUSTOM_PROVIDER_PROTOCOL_VERSION = 99;
 export const SURVEY_TRANSLATIONS_PROTOCOL_VERSION = 98;
 export const RESOURCE_HISTORY_PROTOCOL_VERSION = 96;
 export const PROJECT_CLONE_PROTOCOL_VERSION = 95;
@@ -347,6 +350,10 @@ export const WS_METHODS = {
 	providerJbcentralLogin: "provider.jbcentralLogin",
 	providerJbcentralUpdate: "provider.jbcentralUpdate",
 	providerJbcentralQuota: "provider.jbcentralQuota",
+	providerCustomList: "provider.custom.list",
+	providerCustomSave: "provider.custom.save",
+	providerCustomDelete: "provider.custom.delete",
+	providerCustomProbe: "provider.custom.probe",
 	hostUpdate: "host.update",
 	settingsUpdate: "settings.update",
 	environmentGet: "environment.get",
@@ -979,6 +986,22 @@ export interface WsMethodMap {
 	"provider.jbcentralLogin": { params: Record<string, never>; result: JbcentralLoginResult };
 	"provider.jbcentralUpdate": { params: Record<string, never>; result: JbcentralActionResult };
 	"provider.jbcentralQuota": { params: { force?: boolean }; result: JbcentralQuotaSnapshot };
+	"provider.custom.list": {
+		params: Record<string, never>;
+		result: { providers: CustomOpenAiProviderSummary[] };
+	};
+	"provider.custom.save": {
+		params: { provider: CustomOpenAiProviderInput };
+		result: { providerId: string };
+	};
+	"provider.custom.delete": {
+		params: { providerId: string };
+		result: Ack;
+	};
+	"provider.custom.probe": {
+		params: { baseUrl: string; apiKey?: string | undefined };
+		result: { models: string[] };
+	};
 	"host.update": { params: Record<string, never>; result: Ack };
 	"settings.update": { params: { config: AppConfigUpdate }; result: AppConfig };
 	"environment.get": { params: Record<string, never>; result: HostEnvironmentStatus };

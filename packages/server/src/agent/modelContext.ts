@@ -32,9 +32,9 @@ import { usePiRuntime } from "./agentSessionManager";
 import { type AvailableModelsRuntime, settledAvailableModels } from "./piRuntime";
 
 const OPENAI_RESPONSES_APIS = new Set(["openai-responses", "openai-codex-responses"]);
-const PARSE = { allowTrailingComma: true };
-const FORMATTING = { formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" } };
-const EMPTY_CONFIG = '{\n  "providers": {}\n}\n';
+export const PARSE = { allowTrailingComma: true };
+export const FORMATTING = { formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" } };
+export const EMPTY_CONFIG = '{\n  "providers": {}\n}\n';
 const SAVE_FAILURE =
 	"Couldn't save pi's models.json. Check the file and its permissions, then retry.";
 
@@ -44,11 +44,11 @@ export function setModelContextPublisher(publisher: (() => void) | null): void {
 	publishContextChange = publisher;
 }
 
-function modelsPath(): string {
+export function modelsPath(): string {
 	return join(getAgentDir(), "models.json");
 }
 
-function readSource(path: string): string | undefined {
+export function readSource(path: string): string | undefined {
 	try {
 		return readFileSync(path, "utf8");
 	} catch (error) {
@@ -57,7 +57,7 @@ function readSource(path: string): string | undefined {
 	}
 }
 
-function parseConfig(source: string | undefined): Node | undefined {
+export function parseConfig(source: string | undefined): Node | undefined {
 	if (source === undefined) return undefined;
 	const errors: ParseError[] = [];
 	const root = parseTree(source.replace(/^\uFEFF/, ""), errors, PARSE);
@@ -123,7 +123,7 @@ function resolveModelsFile(path: string): string {
 	throw new Error(SAVE_FAILURE);
 }
 
-function writeModelsFile(path: string, source: string): void {
+export function writeModelsFile(path: string, source: string): void {
 	const target = resolveModelsFile(path);
 	let existing: Stats | undefined;
 	try {

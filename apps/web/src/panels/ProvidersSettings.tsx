@@ -1,7 +1,10 @@
 import {
+	RiEditLine as EditIcon,
 	RiLockLine as Lock,
 	RiLogoutBoxLine as LogOut,
+	RiAddLine as Plus,
 	RiRefreshLine as RefreshCw,
+	RiDeleteBinLine as Trash,
 } from "@remixicon/react";
 import {
 	type AppConfigUpdate,
@@ -15,6 +18,8 @@ import { useCallback, useState } from "react";
 import { AUTH_KIND_LABEL } from "@/chat/modelPicker";
 import { toast, useAppStore } from "@/store";
 import { errorText, getTransport } from "@/transport";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { CustomOpenAiDialog } from "./CustomOpenAiDialog";
 import { JetBrainsAiCard } from "./JetBrainsAiCard";
 import { ProviderRow } from "./ProviderRow";
 import { SettingsGroup, SettingsPageContainer } from "./SettingsGroup";
@@ -26,6 +31,10 @@ const MAX_REST_NAMES = 5;
 export function ProvidersSettings() {
 	const t = useT();
 	const [showAllKeys, setShowAllKeys] = useState(false);
+	const [customDialogOpen, setCustomDialogOpen] = useState(false);
+	const [editingProviderId, setEditingProviderId] = useState<string | undefined>(undefined);
+	const [deletingProvider, setDeletingProvider] = useState<ProviderStatus | null>(null);
+	const [deleting, setDeleting] = useState(false);
 	const {
 		report,
 		failed,
@@ -49,6 +58,23 @@ export function ProvidersSettings() {
 			throw error;
 		}
 	}, []);
+
+	const handleDeleteCustomProvider = async () => {
+		if (!deletingProvider) return;
+		setDeleting(true);
+		try {
+			await getTransport().request("provider.custom.delete", {
+				providerId: deletingProvider.id,
+			});
+			toast.success(translate("panels.customOpenAi.deleteSuccess"));
+			setDeletingProvider(null);
+			void load();
+		} catch (error) {
+			toast.error(errorText(error), translate("panels.customOpenAi.deleteFailed"));
+		} finally {
+			setDeleting(false);
+		}
+	};
 
 	const quotaSettings =
 		protocolVersion !== null && protocolVersion >= JBCENTRAL_QUOTA_PROTOCOL_VERSION
@@ -74,18 +100,32 @@ export function ProvidersSettings() {
 		<div data-testid="settings-providers" className="flex flex-col gap-24">
 			<div className="flex items-center justify-between gap-12">
 				<p className="tr-text-metadata text-text-muted">{t("settings.providers.intro")}</p>
-				<Button
-					variant="ghost"
-					size="m"
-					iconLeft={RefreshCw}
-					loading={refreshing}
-					spinIcon
-					data-testid="providers-refresh"
-					aria-label={t("settings.providers.refreshLabel")}
-					onClick={() => void load()}
-				>
-					{t("settings.providers.refresh")}
-				</Button>
+				<div className="flex items-center gap-8">
+					<Button
+						variant="outline"
+						size="m"
+						iconLeft={Plus}
+						data-testid="providers-add-custom"
+						onClick={() => {
+							setEditingProviderId(undefined);
+							setCustomDialogOpen(true);
+						}}
+					>
+						{t("settings.providers.addCustom")}
+					</Button>
+					<Button
+						variant="ghost"
+						size="m"
+						iconLeft={RefreshCw}
+						loading={refreshing}
+						spinIcon
+						data-testid="providers-refresh"
+						aria-label={t("settings.providers.refreshLabel")}
+						onClick={() => void load()}
+					>
+						{t("settings.providers.refresh")}
+					</Button>
+				</div>
 			</div>
 
 			{report == null && !failed ? (
@@ -104,6 +144,11 @@ export function ProvidersSettings() {
 									provider={p}
 									busy={busyProvider === p.id}
 									onSignOut={() => void logout(p.id)}
+									onEdit={() => {
+										setEditingProviderId(p.id);
+										setCustomDialogOpen(true);
+									}}
+									onDelete={() => setDeletingProvider(p)}
 								/>
 							))}
 						</SettingsGroup>
@@ -183,6 +228,35 @@ export function ProvidersSettings() {
 			)}
 
 			{loginDialog}
+
+			{customDialogOpen ? (
+				<CustomOpenAiDialog
+					existingProviderId={editingProviderId}
+					onClose={() => {
+						setCustomDialogOpen(false);
+						setEditingProviderId(undefined);
+					}}
+					onSaved={() => {
+						void load();
+					}}
+				/>
+			) : null}
+
+			{deletingProvider ? (
+				<ConfirmDialog
+					open
+					onOpenChange={(open) => !open && !deleting && setDeletingProvider(null)}
+					title={t("panels.customOpenAi.deleteTitle")}
+					description={t("panels.customOpenAi.deleteConfirm", {
+						name: deletingProvider.name,
+					})}
+					confirmLabel={t("common.delete")}
+					cancelLabel={t("common.cancel")}
+					destructive
+					confirmTestId="confirm-delete-custom-provider"
+					onConfirm={() => void handleDeleteCustomProvider()}
+				/>
+			) : null}
 		</div>
 	);
 }
@@ -191,10 +265,14 @@ function ConnectedRow({
 	provider,
 	busy,
 	onSignOut,
+	onEdit,
+	onDelete,
 }: {
 	provider: ProviderStatus;
 	busy: boolean;
 	onSignOut: () => void;
+	onEdit?: () => void;
+	onDelete?: () => void;
 }) {
 	const t = useT();
 	const label = t(AUTH_KIND_LABEL[provider.kind ?? "other"]);
@@ -217,7 +295,36 @@ function ConnectedRow({
 					? t("settings.providers.kindDetail", { kind: label, detail: provider.detail })
 					: label}
 			</span>
-			{provider.canLogout ? (
+			{provider.custom ? (
+				<div className="flex shrink-0 items-center gap-8">
+					<span className="rounded-full border border-primary-muted bg-primary-subtle px-8 py-2 tr-text-metadata text-primary">
+						{t("settings.providers.customBadge")}
+					</span>
+					<Button
+						variant="outline"
+						size="s"
+						iconLeft={EditIcon}
+						data-testid="provider-edit-custom"
+						data-provider={provider.id}
+						disabled={busy}
+						onClick={onEdit}
+					>
+						{t("settings.providers.editCustom")}
+					</Button>
+					<Button
+						variant="ghost"
+						size="s"
+						tone="danger"
+						iconLeft={Trash}
+						data-testid="provider-delete-custom"
+						data-provider={provider.id}
+						disabled={busy}
+						onClick={onDelete}
+					>
+						{t("settings.providers.deleteCustom")}
+					</Button>
+				</div>
+			) : provider.canLogout ? (
 				<Button
 					variant="soft-primary"
 					size="m"

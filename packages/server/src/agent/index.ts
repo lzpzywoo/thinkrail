@@ -9,6 +9,13 @@ export {
 	stopSubagent,
 } from "./chatResources";
 export {
+	deleteCustomOpenAiProvider,
+	listCustomOpenAiProviders,
+	probeCustomOpenAiModels,
+	saveCustomOpenAiProvider,
+	setCustomProviderPublisher,
+} from "./customOpenAi";
+export {
 	type ReviewSubagentRun,
 	readChildTranscript,
 	refreshSubagentConcurrency,

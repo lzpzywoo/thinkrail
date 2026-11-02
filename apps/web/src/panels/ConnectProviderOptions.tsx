@@ -1,6 +1,7 @@
 import {
 	RiArrowRightLine as ArrowRight,
 	RiLoginBoxLine as LogIn,
+	RiAddLine as Plus,
 	RiSearchLine as Search,
 } from "@remixicon/react";
 import type { DetectedAccount, DetectedAccountSource, ProviderStatus } from "@thinkrail/contracts";
@@ -11,6 +12,7 @@ import { SkeletonRows } from "@thinkrail/ui/skeleton";
 import { type ComponentProps, useEffect, useEffectEvent, useRef, useState } from "react";
 import { toast } from "@/store";
 import { getTransport } from "@/transport";
+import { CustomOpenAiDialog } from "./CustomOpenAiDialog";
 import { JetBrainsAiCard } from "./JetBrainsAiCard";
 import { ProviderRow } from "./ProviderRow";
 import type { ProviderAuth } from "./useProviderAuth";
@@ -83,6 +85,7 @@ export function ConnectProviderOptions({
 	const t = useT();
 	const { report, failed, refreshing, load, startLogin, rowBusy } = auth;
 	const [search, setSearch] = useState("");
+	const [customOpenAiOpen, setCustomOpenAiOpen] = useState(false);
 	const baseline = useRef<Set<string> | null>(
 		configuredAtStart ? new Set(configuredAtStart) : null,
 	);
@@ -138,7 +141,30 @@ export function ConnectProviderOptions({
 	const connect = (p: ProviderStatus, method: Method) => void startLogin(p.id, method);
 
 	return (
-		<div data-testid="connect-provider-options" className="flex flex-col text-left">
+		<div data-testid="connect-provider-options" className="flex flex-col gap-12 text-left">
+			<div
+				data-testid="connect-custom-openai-card"
+				className="flex items-center justify-between gap-12 rounded-sm border border-border-default bg-clip-padding bg-container-workspace-bg p-12"
+			>
+				<div className="flex min-w-0 flex-1 flex-col gap-2">
+					<span className="tr-title-card text-text-default">
+						{t("panels.connectProvider.customCardTitle")}
+					</span>
+					<span className="tr-text-metadata text-text-muted">
+						{t("panels.connectProvider.customCardDescription")}
+					</span>
+				</div>
+				<Button
+					variant="soft-primary"
+					size="m"
+					iconLeft={Plus}
+					data-testid="connect-custom-openai-btn"
+					onClick={() => setCustomOpenAiOpen(true)}
+				>
+					{t("panels.connectProvider.customCardAction")}
+				</Button>
+			</div>
+
 			<section
 				data-testid="connect-provider-all"
 				className="flex flex-col gap-8 rounded-sm border border-border-default bg-clip-padding bg-container-workspace-bg p-16"
@@ -220,6 +246,14 @@ export function ConnectProviderOptions({
 					) : null}
 				</div>
 			</section>
+			{customOpenAiOpen ? (
+				<CustomOpenAiDialog
+					onClose={() => setCustomOpenAiOpen(false)}
+					onSaved={() => {
+						void load();
+					}}
+				/>
+			) : null}
 		</div>
 	);
 }

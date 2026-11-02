@@ -878,6 +878,34 @@ export interface ProviderStatus {
 	canOAuth?: boolean;
 	canApiKey?: boolean;
 	canLogout?: boolean;
+	custom?: boolean;
+}
+
+export interface CustomModelConfig {
+	id: string;
+	name?: string;
+	contextWindow?: number;
+	maxTokens?: number;
+	reasoning?: boolean;
+	input?: ("text" | "image")[];
+}
+
+export interface CustomOpenAiProviderInput {
+	id: string;
+	name: string;
+	baseUrl: string;
+	apiKey?: string | undefined;
+	api?: ("openai-completions" | "openai-responses") | undefined;
+	models: CustomModelConfig[];
+}
+
+export interface CustomOpenAiProviderSummary {
+	id: string;
+	name: string;
+	baseUrl: string;
+	api: "openai-completions" | "openai-responses";
+	hasApiKey: boolean;
+	models: CustomModelConfig[];
 }
 
 export type DetectedAccountSource =

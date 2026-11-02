@@ -29,6 +29,7 @@ import {
 	clearQueueSession,
 	compactSession,
 	createSession,
+	deleteCustomOpenAiProvider,
 	deleteSession,
 	ensureSessionAttached,
 	followUpSession,
@@ -43,6 +44,7 @@ import {
 	isMcpLoginId,
 	isPiSessionId,
 	listAvailableModels,
+	listCustomOpenAiProviders,
 	listModelContextSettings,
 	listProjectAliasSkillNames,
 	listSessionStates,
@@ -53,6 +55,7 @@ import {
 	markWorkspaceUnread,
 	notifyExtUi,
 	nudgeSession,
+	probeCustomOpenAiModels,
 	projectTrustSummary,
 	promptSession,
 	readBackgroundCommandOutput,
@@ -68,6 +71,7 @@ import {
 	replyMcpProbe,
 	resolveExtUi,
 	respondToTool,
+	saveCustomOpenAiProvider,
 	sendReviewFixToSession,
 	setModelContextWindow,
 	setSessionModel,
@@ -1285,6 +1289,13 @@ const handlers: WsHandlers = {
 		await logoutProvider(params.providerId);
 		return { ok: true } as const;
 	},
+	"provider.custom.list": () => ({ providers: listCustomOpenAiProviders() }),
+	"provider.custom.save": (p) => saveCustomOpenAiProvider(p.provider),
+	"provider.custom.delete": async (p) => {
+		await deleteCustomOpenAiProvider(p.providerId);
+		return { ok: true } as const;
+	},
+	"provider.custom.probe": (p) => probeCustomOpenAiModels(p.baseUrl, p.apiKey),
 	"provider.jbcentralConnect": () =>
 		observeSetupAction("provider_connect", connectJbcentral, centralConnectOutcome),
 	"provider.jbcentralDisconnect": () => disconnectJbcentral(),

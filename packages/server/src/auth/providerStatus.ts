@@ -7,6 +7,7 @@ import type {
 import { jbcentralInstall } from "@thinkrail/shared/jbcentral";
 import {
 	describeProviderAuth,
+	listCustomOpenAiProviders,
 	type ProviderAuthFacts,
 	settledAvailableModels,
 	usePiRuntime,
@@ -17,6 +18,7 @@ export interface ProviderStatusSources {
 	modelProviderIds: Set<string>;
 	availableProviders: Set<string>;
 	centralProviders: Set<string>;
+	customProviders?: Set<string>;
 	credentialProviders: string[];
 	oauthProviders: { id: string; name: string }[];
 	credentialType: (id: string) => "oauth" | "api_key" | undefined;
@@ -32,16 +34,19 @@ export function buildProviderReport(sources: ProviderStatusSources): ProviderSta
 	const oauthIds = new Set(sources.oauthProviders.map((p) => p.id));
 	const oauthName = new Map(sources.oauthProviders.map((p) => [p.id, p.name]));
 	const removable = new Set(sources.credentialProviders);
+	const customProviders = sources.customProviders ?? new Set();
 	const ids = new Set<string>([
 		...sources.modelProviderIds,
 		...sources.credentialProviders,
 		...oauthIds,
+		...customProviders,
 	]);
 	const providers: ProviderStatus[] = [...ids].map((id) => {
 		const registryName = sources.displayName(id);
 		const name = registryName === id ? (oauthName.get(id) ?? registryName) : registryName;
 		const canOAuth = oauthIds.has(id);
 		const canApiKey = sources.apiKeyLogin(id);
+		const isCustom = customProviders.has(id);
 		const login = {
 			...(canOAuth ? { canOAuth: true } : {}),
 			...(canApiKey ? { canApiKey: true } : {}),
@@ -50,7 +55,8 @@ export function buildProviderReport(sources: ProviderStatusSources): ProviderSta
 		const configured =
 			sources.availableProviders.has(id) ||
 			(!sources.modelProviderIds.has(id) && sources.hasAuth(id));
-		if (!configured) return { id, name, configured: false, ...login };
+		if (!configured)
+			return { id, name, configured: false, ...(isCustom ? { custom: true } : {}), ...login };
 		const { source, label } = sources.providerAuth(id);
 		const credentialType = sources.credentialType(id);
 		const auth = describeProviderAuth({
@@ -60,7 +66,14 @@ export function buildProviderReport(sources: ProviderStatusSources): ProviderSta
 			...(source === undefined ? {} : { source }),
 			...(label === undefined ? {} : { label }),
 		});
-		return { id, name, configured: true, ...auth, ...login };
+		return {
+			id,
+			name,
+			configured: true,
+			...(isCustom ? { custom: true } : {}),
+			...auth,
+			...login,
+		};
 	});
 
 	providers.sort((a, b) => {
@@ -103,6 +116,9 @@ export async function getProviderStatus(): Promise<ProviderStatusReport> {
 		const centralProviders = new Set(
 			providerStatusIds.filter((providerId) => generation.opaqueProviderIds.has(providerId)),
 		);
+		const customList = listCustomOpenAiProviders();
+		const customProviders = new Set(customList.map((p) => p.id));
+		const customNames = new Map(customList.map((p) => [p.id, p.name]));
 
 		return buildProviderReport({
 			modelProviderIds: new Set(
@@ -110,6 +126,7 @@ export async function getProviderStatus(): Promise<ProviderStatusReport> {
 			),
 			availableProviders: new Set(available.map((model) => model.provider)),
 			centralProviders,
+			customProviders,
 			credentialProviders: visibleCredentials.map((credential) => credential.providerId),
 			oauthProviders: visibleProviders
 				.filter((provider) => provider.auth.oauth)
@@ -123,7 +140,7 @@ export async function getProviderStatus(): Promise<ProviderStatusReport> {
 			displayName: (id) =>
 				centralProviders.has(id)
 					? (generation.providerStatusNames.get(id) ?? id)
-					: (runtime.getProvider(id)?.name ?? id),
+					: (runtime.getProvider(id)?.name ?? customNames.get(id) ?? id),
 			hasAuth: (id) => runtime.getProviderAuthStatus(id).configured,
 			jbcentral,
 			jbcentralInstall: install,
