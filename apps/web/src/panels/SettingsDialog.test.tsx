@@ -7,7 +7,9 @@ import {
 	WORKSPACE_SETTLE_PROTOCOL_VERSION,
 } from "@thinkrail/contracts";
 import { t } from "@thinkrail/locales/react";
-import { SettingsSection } from "@/store";
+import { renderToStaticMarkup } from "react-dom/server";
+import { SettingsSection, useAppStore } from "@/store";
+import { SettingsDialog, SettingsNavFooter } from "./SettingsDialog";
 import {
 	filterSettingsNavGroups,
 	resolveSettingsSection,
@@ -183,5 +185,16 @@ describe("resolveSettingsSection", () => {
 		];
 		expect(resolveSettingsSection(SettingsSection.Models, groups)).toBe(SettingsSection.Privacy);
 		expect(resolveSettingsSection(SettingsSection.Models, [])).toBe(SettingsSection.Appearance);
+	});
+
+	test("renders version in nav footer when provided", () => {
+		const markup = renderToStaticMarkup(
+			<SettingsNavFooter updateSettingsAvailable={true} versionDisplay="main@abcdef0" />,
+		);
+		expect(markup).toContain('data-testid="settings-nav-footer"');
+		expect(markup).toContain('data-testid="settings-version-button"');
+		expect(markup).toContain("ThinkRail main@abcdef0");
+		expect(markup).toContain('data-testid="settings-github-repo-link"');
+		expect(markup).toContain('href="https://github.com/JetBrains/thinkrail"');
 	});
 });

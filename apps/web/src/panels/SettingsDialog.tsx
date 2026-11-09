@@ -1,4 +1,8 @@
-import { RiCloseLine } from "@remixicon/react";
+import {
+	RiCloseLine,
+	RiExternalLinkLine as ExternalLink,
+	RiGithubLine as GithubIcon,
+} from "@remixicon/react";
 import { useT } from "@thinkrail/locales/react";
 import { IconButton } from "@thinkrail/ui/button";
 import {
@@ -29,6 +33,63 @@ import { resolveSettingsSection, settingsNavGroups } from "./settingsNav";
 import { TemplatesSettings } from "./TemplatesSettings";
 import { TerminalSettings } from "./TerminalSettings";
 import { WorkspacesSettings } from "./WorkspacesSettings";
+
+const GITHUB_REPO_URL = "https://github.com/JetBrains/thinkrail";
+
+export function SettingsNavFooter({
+	updateSettingsAvailable,
+	versionDisplay,
+}: {
+	updateSettingsAvailable: boolean;
+	versionDisplay?: string | null;
+}) {
+	const t = useT();
+	const hostUpdate = useAppStore((s) => s.hostUpdate);
+	const hostAppVersion = useAppStore((s) => s.hostAppVersion);
+	const version = versionDisplay !== undefined ? versionDisplay : (hostUpdate?.currentVersion ?? hostAppVersion);
+
+	return (
+		<div
+			data-testid="settings-nav-footer"
+			className="flex shrink-0 items-center justify-between gap-6 px-4 py-6 md:border-border-default md:border-t md:px-0 md:pt-8"
+		>
+			{updateSettingsAvailable ? (
+				<button
+					type="button"
+					data-testid="settings-version-button"
+					onClick={() => useAppStore.getState().setSettingsSection(SettingsSection.Updates)}
+					className="inline-flex min-w-0 items-center gap-4 text-left text-text-muted hover:text-text-default hover:underline tr-text-metadata"
+				>
+					<GithubIcon aria-hidden="true" className="size-14 shrink-0" />
+					<span className="truncate">
+						{version
+							? t("settings.dialog.versionLabel", { version })
+							: t("settings.dialog.versionDefault")}
+					</span>
+				</button>
+			) : (
+				<div className="inline-flex min-w-0 items-center gap-4 text-text-muted tr-text-metadata">
+					<GithubIcon aria-hidden="true" className="size-14 shrink-0" />
+					<span className="truncate">
+						{version
+							? t("settings.dialog.versionLabel", { version })
+							: t("settings.dialog.versionDefault")}
+					</span>
+				</div>
+			)}
+			<a
+				href={GITHUB_REPO_URL}
+				target="_blank"
+				rel="noopener noreferrer"
+				data-testid="settings-github-repo-link"
+				aria-label={t("settings.dialog.githubRepoAria")}
+				className="text-text-muted hover:text-text-default"
+			>
+				<ExternalLink aria-hidden="true" className="size-14 shrink-0" />
+			</a>
+		</div>
+	);
+}
 
 export function SettingsDialog({
 	layoutSettings,
@@ -128,6 +189,8 @@ export function SettingsDialog({
 						>
 							<span className="tr-text-ui text-primary">{t("settings.dialog.feedbackCta")}</span>
 						</button>
+
+						<SettingsNavFooter updateSettingsAvailable={updateSettings !== undefined} />
 					</nav>
 
 					<div className="min-h-0 flex-1 overflow-y-auto p-16">
