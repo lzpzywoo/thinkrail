@@ -378,11 +378,12 @@ export function createSourceHostUpdate(options: SourceUpdateOptions = {}): Sourc
 		check: async () => {
 			try {
 				const res = checkSourceUpdateAvailable(options);
-				if (!res.updateAvailable) return null;
+				const status: HostUpdateStatus = res.updateAvailable ? "available" : "idle";
 				return {
 					currentVersion: `main@${res.currentShort}`,
 					availableVersion: `main@${res.upstreamShort}`,
 					channel: "source",
+					status,
 				};
 			} catch {
 				return null;

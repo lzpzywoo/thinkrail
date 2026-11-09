@@ -181,7 +181,7 @@ describe("sourceUpdate", () => {
 		expect(steps).toContain("Update completed successfully.");
 	});
 
-	test("createSourceHostUpdate check() returns notice when update available and null when up to date", async () => {
+	test("createSourceHostUpdate check() returns notice when update available and idle when up to date", async () => {
 		const { runner } = createMockGitRunner({
 			"remote -v": { stdout: `upstream ${DEFAULT_UPSTREAM_URL} (fetch)\n` },
 			"fetch upstream main": { exitCode: 0 },
@@ -199,6 +199,26 @@ describe("sourceUpdate", () => {
 			currentVersion: "main@344aafc",
 			availableVersion: "main@1aba630",
 			channel: "source",
+			status: "available",
+		});
+
+		const { runner: runnerUpToDate } = createMockGitRunner({
+			"remote -v": { stdout: `upstream ${DEFAULT_UPSTREAM_URL} (fetch)\n` },
+			"fetch upstream main": { exitCode: 0 },
+			"rev-parse HEAD": { stdout: "344aafcb0b56902e5fc87834059a353d54ca8892\n" },
+			"rev-parse upstream/main": { stdout: "344aafcb0b56902e5fc87834059a353d54ca8892\n" },
+			"rev-list --count HEAD..upstream/main": { stdout: "0\n" },
+		});
+		const hostUpdateUpToDate = createSourceHostUpdate({
+			repoRoot: "/repo",
+			gitRunner: runnerUpToDate,
+		});
+		const upToDateNotice = await hostUpdateUpToDate.check();
+		expect(upToDateNotice).toEqual({
+			currentVersion: "main@344aafc",
+			availableVersion: "main@344aafc",
+			channel: "source",
+			status: "idle",
 		});
 	});
 });

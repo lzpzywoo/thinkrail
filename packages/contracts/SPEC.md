@@ -610,9 +610,10 @@ the palette ranks with — kept here so host-side search can rank with the same 
   only contracts and two copies of the gesture would drift; it is framework-free and touches no global,
   so it stays within the no-runtime-deps rule. Each client keeps only a thin key-state adapter.
 - **`HostUpdateNotice`** — the optional host-wire CLI lifecycle: current version, newer available version,
-  channel, and an optional closed `available | running | succeeded | failed` status (absent means the legacy
+  channel, and an optional closed `available | running | succeeded | failed | idle` status (absent means the legacy
   v64 advisory). `host.updateAvailable` publishes full replacements. Protocol v70 adds parameterless
-  `host.update`; no output, arbitrary diagnostic, feed URL, artifact, platform path, or shell command crosses
+  `host.update`; protocol v103 (`HOST_UPDATE_CHECK_PROTOCOL_VERSION`) adds parameterless `host.checkUpdates`;
+  no output, arbitrary diagnostic, feed URL, artifact, platform path, or shell command crosses
   the wire.
 - **wsProtocol.ts** — `WS_METHODS` (`project.*` — incl. **`project.close`** (mark the stable record
   closed without deleting associated state), **`project.rename`** (`{ id, name }` → the updated `Project`;

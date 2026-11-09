@@ -53,8 +53,19 @@ function hostUpdates(
 	state: HostUpdateNotice,
 	canRun = false,
 	requestFailed = false,
+	canCheck = false,
+	isChecking = false,
 ): UpdatesController {
-	return { source: "host", state, canRun, requestFailed, runUpdate: () => {} };
+	return {
+		source: "host",
+		state,
+		canRun,
+		canCheck,
+		isChecking,
+		requestFailed,
+		runUpdate: () => {},
+		checkForUpdates: () => {},
+	};
 }
 
 function render(updates: UpdatesController): string {

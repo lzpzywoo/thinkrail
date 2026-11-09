@@ -109,7 +109,14 @@ beforeEach(() => {
 	resetSurveyForTests();
 	repo = join(dataDir, "repo");
 	mkdirSync(repo);
-	git(repo, "init", "-b", "main");
+	const initRes = Bun.spawnSync(["git", "-C", repo, "init", "-b", "main"], {
+		stdout: "ignore",
+		stderr: "ignore",
+	});
+	if (!initRes.success) {
+		git(repo, "init");
+		git(repo, "checkout", "-b", "main");
+	}
 	git(repo, "config", "user.email", "t@thinkrail.test");
 	git(repo, "config", "user.name", "test");
 	git(repo, "config", "commit.gpgsign", "false");
@@ -385,9 +392,27 @@ test("a pre-v87 client's source-less PR preview keeps the session's plan body", 
 test("request diagnostics expose only registered method names", async () => {
 	expect(requestMethodDiagnostic("workspace.list")).toBe("workspace.list");
 	expect(requestMethodDiagnostic("host.update")).toBe("host.update");
+	expect(requestMethodDiagnostic("host.checkUpdates")).toBe("host.checkUpdates");
 	expect(requestMethodDiagnostic("secret prompt value")).toBe("unknown method");
 	expect(requestMethodDiagnostic("toString")).toBe("unknown method");
 	await expect(handleRequest("toString", undefined, CTX)).rejects.toThrow("Unknown method");
+});
+
+test("host.checkUpdates invokes the context-injected operation or returns null", async () => {
+	const notice = {
+		currentVersion: "main@1234567",
+		availableVersion: "main@7654321",
+		channel: "source",
+		status: "available" as const,
+	};
+	expect(
+		await handleRequest(
+			"host.checkUpdates",
+			{},
+			{ clientKey: "test-client", checkHostUpdates: async () => notice },
+		),
+	).toEqual(notice);
+	expect(await handleRequest("host.checkUpdates", {}, CTX)).toBeNull();
 });
 
 test("host.update invokes only the context-injected parameterless operation", async () => {

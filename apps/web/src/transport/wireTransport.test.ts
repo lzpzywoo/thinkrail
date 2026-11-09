@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import {
 	CHANGE_MUTATIONS_PROTOCOL_VERSION,
+	HOST_UPDATE_CHECK_PROTOCOL_VERSION,
 	HOST_UPDATE_RUN_PROTOCOL_VERSION,
 	PLAN_REVIEW_SUBAGENT_PROTOCOL_VERSION,
 	PLAN_SUMMARY_GENERATION_PROTOCOL_VERSION,
@@ -12,6 +13,7 @@ import {
 import {
 	mergeSessionStateRecords,
 	supportsChangeMutations,
+	supportsHostCheckUpdates,
 	supportsHostUpdateRun,
 	supportsPlanReview,
 	supportsPlanSummaryGeneration,
@@ -37,6 +39,13 @@ test("host update execution is offered only by a host at or beyond the v70 capab
 	expect(supportsHostUpdateRun(HOST_UPDATE_RUN_PROTOCOL_VERSION + 1)).toBe(true);
 	expect(supportsHostUpdateRun(HOST_UPDATE_RUN_PROTOCOL_VERSION - 1)).toBe(false);
 	expect(supportsHostUpdateRun(null)).toBe(false);
+});
+
+test("host update check is offered only by a host at or beyond the v103 capability", () => {
+	expect(supportsHostCheckUpdates(HOST_UPDATE_CHECK_PROTOCOL_VERSION)).toBe(true);
+	expect(supportsHostCheckUpdates(HOST_UPDATE_CHECK_PROTOCOL_VERSION + 1)).toBe(true);
+	expect(supportsHostCheckUpdates(HOST_UPDATE_CHECK_PROTOCOL_VERSION - 1)).toBe(false);
+	expect(supportsHostCheckUpdates(null)).toBe(false);
 });
 
 test("change mutations are offered only by a host at or beyond their capability version", () => {

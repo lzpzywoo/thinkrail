@@ -313,6 +313,7 @@ export interface RequestContext {
 	/** The socket's advertised protocol; absent for in-process callers, who speak the current one. */
 	protocolVersion?: number;
 	runHostUpdate?: () => void;
+	checkHostUpdates?: () => Promise<HostUpdateNotice | null>;
 }
 
 type WsHandler<M extends WsMethodName> = (
@@ -1333,6 +1334,10 @@ const handlers: WsHandlers = {
 		if (!ctx.runHostUpdate) throw new Error("Host update is unavailable.");
 		ctx.runHostUpdate();
 		return { ok: true } as const;
+	},
+	"host.checkUpdates": async (_params, ctx) => {
+		if (!ctx.checkHostUpdates) return null;
+		return await ctx.checkHostUpdates();
 	},
 	"settings.update": (params) => {
 		const config = params.config;

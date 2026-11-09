@@ -3,6 +3,7 @@ import type { HostUpdateNotice, NativeUpdateBridge, NativeUpdateState } from "@t
 import {
 	getNativeUpdateBridge,
 	hasNativeUpdateSurface,
+	runHostUpdateCheck,
 	runHostUpdateRequest,
 	runNativeUpdateRequest,
 	selectUpdateSource,
@@ -116,6 +117,26 @@ describe("native update shell subscription", () => {
 			() => failures++,
 		);
 		await Promise.resolve();
+		expect(failures).toBe(1);
+	});
+
+	test("host update check calls done and captures failure without leaking diagnostic", async () => {
+		let done = false;
+		let failures = 0;
+		runHostUpdateCheck(
+			async () => {
+				throw new Error("network down");
+			},
+			() => {
+				done = true;
+			},
+			() => {
+				failures++;
+			},
+		);
+		await Promise.resolve();
+		await Promise.resolve();
+		expect(done).toBe(true);
 		expect(failures).toBe(1);
 	});
 

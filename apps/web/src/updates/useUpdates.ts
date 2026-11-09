@@ -31,8 +31,11 @@ export type UpdatesController =
 			source: "host";
 			state: HostUpdateNotice;
 			canRun: boolean;
+			canCheck: boolean;
+			isChecking: boolean;
 			requestFailed: boolean;
 			runUpdate(): void;
+			checkForUpdates(): void;
 	  };
 
 export function getNativeUpdateBridge(value: unknown): NativeUpdateBridge | null {
@@ -73,12 +76,28 @@ export function runNativeUpdateRequest(
 }
 
 export type HostUpdateRunner = () => Promise<unknown>;
+export type HostUpdateChecker = () => Promise<unknown>;
 
 export function runHostUpdateRequest(operation: HostUpdateRunner, onError: () => void): void {
 	try {
 		void operation().catch(() => onError());
 	} catch {
 		onError();
+	}
+}
+
+export function runHostUpdateCheck(
+	operation: HostUpdateChecker,
+	onDone: () => void,
+	onError: () => void,
+): void {
+	try {
+		void operation()
+			.catch(() => onError())
+			.finally(() => onDone());
+	} catch {
+		onError();
+		onDone();
 	}
 }
 
@@ -128,7 +147,10 @@ export function hasNativeUpdateSurface(
 	return state !== null && state.status !== "disabled";
 }
 
-export function useUpdates(hostUpdateRunner: HostUpdateRunner | null): UpdatesController | null {
+export function useUpdates(
+	hostUpdateRunner: HostUpdateRunner | null,
+	hostUpdateChecker: HostUpdateChecker | null = null,
+): UpdatesController | null {
 	const [bridge] = useState(() =>
 		getNativeUpdateBridge(Reflect.get(globalThis, NATIVE_UPDATES_GLOBAL)),
 	);
@@ -137,6 +159,7 @@ export function useUpdates(hostUpdateRunner: HostUpdateRunner | null): UpdatesCo
 		null,
 	);
 	const [failedHostRequestFor, setFailedHostRequestFor] = useState<HostUpdateNotice | null>(null);
+	const [isHostChecking, setIsHostChecking] = useState(false);
 	const hostUpdate = useAppStore((state) => state.hostUpdate);
 
 	useEffect(() => {
@@ -171,16 +194,32 @@ export function useUpdates(hostUpdateRunner: HostUpdateRunner | null): UpdatesCo
 		};
 	}
 	if (source === "host" && hostUpdate) {
-		const canRun = hostUpdateRunner !== null && hostUpdate.status !== undefined;
+		const canRun =
+			hostUpdateRunner !== null &&
+			hostUpdate.status !== undefined &&
+			hostUpdate.status !== "idle" &&
+			hostUpdate.status !== "running";
+		const canCheck = hostUpdateChecker !== null && hostUpdate.status !== "running";
 		return {
 			source,
 			state: hostUpdate,
 			canRun,
+			canCheck,
+			isChecking: isHostChecking,
 			requestFailed: failedHostRequestFor === hostUpdate,
 			runUpdate: () => {
 				if (!canRun || !hostUpdateRunner) return;
 				setFailedHostRequestFor(null);
 				runHostUpdateRequest(hostUpdateRunner, () => setFailedHostRequestFor(hostUpdate));
+			},
+			checkForUpdates: () => {
+				if (!canCheck || !hostUpdateChecker || isHostChecking) return;
+				setIsHostChecking(true);
+				runHostUpdateCheck(
+					hostUpdateChecker,
+					() => setIsHostChecking(false),
+					() => setFailedHostRequestFor(hostUpdate),
+				);
 			},
 		};
 	}

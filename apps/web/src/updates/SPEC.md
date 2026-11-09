@@ -34,9 +34,10 @@ The UI calls the packaged `canary` identity **nightly** without changing feed se
 
 The optional host snapshot arrives through the versioned wire and is synchronized in the store. It remains
 visible through a temporary disconnect and the next welcome replaces or clears it. Current hosts expose
-available/running/succeeded/failed state and one **Run Update** action; the action sends an empty version-gated
-request and the host alone chooses and runs its update command. Success still asks for a manual host restart.
-Older hosts retain fixed `thinkrail update` guidance. No command text or arbitrary diagnostics cross the wire.
+idle/available/running/succeeded/failed state, an optional **Check for Updates** action, and one **Run Update** action;
+the actions send parameterless version-gated requests (`host.checkUpdates` at v103, `host.update` at v70).
+Success still asks for a manual host restart. Older hosts retain fixed `thinkrail update` guidance.
+No command text or arbitrary diagnostics cross the wire.
 
 A present native bridge always wins over host state, including while its capability is resolving or disabled.
 With neither usable capability, the Updates settings section and affordance are absent. The topbar remains a path

@@ -25,6 +25,7 @@ import {
 	FEEDBACK_SURVEY_PROTOCOL_VERSION,
 	FONTS_PROTOCOL_VERSION,
 	HOST_ENVIRONMENT_PROTOCOL_VERSION,
+	HOST_UPDATE_CHECK_PROTOCOL_VERSION,
 	HOST_UPDATE_RUN_PROTOCOL_VERSION,
 	isBackgroundCommandCompletionMessage,
 	isCustomEndpointId,
@@ -242,11 +243,17 @@ test("tool responses replace the ask-only answer method at v93", () => {
 
 test("user-selectable fonts are pinned to v102", () => {
 	expect(FONTS_PROTOCOL_VERSION).toBe(102);
-	expect(PROTOCOL_VERSION).toBe(102);
+	expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(FONTS_PROTOCOL_VERSION);
 	expect(WS_METHODS.fontsList).toBe("fonts.list");
 	expect(WS_METHODS.fontsInstalled).toBe("fonts.installed");
 	expect(WS_METHODS.fontsReveal).toBe("fonts.reveal");
 	expect(WS_CHANNELS.fontsChanged).toBe("fonts.changed");
+});
+
+test("host update checking is pinned to v103", () => {
+	expect(HOST_UPDATE_CHECK_PROTOCOL_VERSION).toBe(103);
+	expect(PROTOCOL_VERSION).toBe(103);
+	expect(WS_METHODS.hostCheckUpdates).toBe("host.checkUpdates");
 });
 
 test("user theme files are pinned to v92", () => {

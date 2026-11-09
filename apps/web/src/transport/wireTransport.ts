@@ -23,6 +23,7 @@ import {
 	CHANGE_MUTATIONS_PROTOCOL_VERSION,
 	FEEDBACK_SURVEY_PROTOCOL_VERSION,
 	FONTS_PROTOCOL_VERSION,
+	HOST_UPDATE_CHECK_PROTOCOL_VERSION,
 	HOST_UPDATE_RUN_PROTOCOL_VERSION,
 	LOCALES_PROTOCOL_VERSION,
 	PI_PACKAGES_PROTOCOL_VERSION,
@@ -88,6 +89,20 @@ export function supportsTurnChanges(protocolVersion: number | null): boolean {
 
 export function runHostUpdate(): Promise<Ack> {
 	return getTransport().request("host.update", {});
+}
+
+export function supportsHostCheckUpdates(protocolVersion: number | null): boolean {
+	return protocolVersion !== null && protocolVersion >= HOST_UPDATE_CHECK_PROTOCOL_VERSION;
+}
+
+export async function checkHostUpdates(): Promise<HostUpdateNotice | null> {
+	const protocol = useAppStore.getState().protocolVersion;
+	if (!supportsHostCheckUpdates(protocol)) return null;
+	const notice = await getTransport().request("host.checkUpdates", {});
+	if (notice) {
+		useAppStore.getState().applyHostUpdate(notice);
+	}
+	return notice;
 }
 
 /** The agent plan-review capability (`todo.startReview`/`reviewAll` + the hidden review subagent) landed at

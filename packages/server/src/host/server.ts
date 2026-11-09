@@ -322,7 +322,7 @@ export async function createServer(options: CreateServerOptions = {}): Promise<R
 	);
 	reviewRefreshTimer.unref?.();
 	let hostUpdateActive = hostUpdate !== undefined;
-	let hostUpdateChecking = false;
+	let hostUpdateCheckingPromise: Promise<HostUpdateNotice | null> | null = null;
 	let requestHostUpdate = (): void => {
 		throw new Error("Host update is unavailable.");
 	};
@@ -492,7 +492,12 @@ export async function createServer(options: CreateServerOptions = {}): Promise<R
 								const result = await handleRequest(method, params, {
 									clientKey: ws.data.clientKey,
 									protocolVersion: ws.data.protocolVersion,
-									...(hostUpdate ? { runHostUpdate: requestHostUpdate } : {}),
+									...(hostUpdate
+										? {
+												runHostUpdate: requestHostUpdate,
+												checkHostUpdates: checkForHostUpdate,
+											}
+										: {}),
 								});
 								return JSON.stringify({ id: requestId, ok: true, result });
 							} catch (err) {
@@ -575,26 +580,36 @@ export async function createServer(options: CreateServerOptions = {}): Promise<R
 	const hostUpdateBlocksDiscovery = (): boolean =>
 		hostUpdateNotice?.status === "running" || hostUpdateNotice?.status === "succeeded";
 
-	const checkForHostUpdate = async (): Promise<void> => {
-		if (!hostUpdate || !hostUpdateActive || hostUpdateChecking || hostUpdateBlocksDiscovery()) {
-			return;
+	const checkForHostUpdate = async (): Promise<HostUpdateNotice | null> => {
+		if (!hostUpdate || !hostUpdateActive || hostUpdateBlocksDiscovery()) {
+			return hostUpdateNotice ?? null;
 		}
-		hostUpdateChecking = true;
-		try {
-			const result = await hostUpdate.check();
-			if (!hostUpdateActive || hostUpdateBlocksDiscovery()) return;
-			if (result && !sameHostUpdateRelease(hostUpdateNotice, result)) {
-				publishHostUpdate({
-					currentVersion: result.currentVersion,
-					availableVersion: result.availableVersion,
-					channel: result.channel,
-					status: "available",
-				});
+		if (hostUpdateCheckingPromise) return await hostUpdateCheckingPromise;
+
+		hostUpdateCheckingPromise = (async () => {
+			try {
+				const result = await hostUpdate.check();
+				if (!hostUpdateActive || hostUpdateBlocksDiscovery()) return hostUpdateNotice ?? null;
+				if (result) {
+					const nextNotice: HostUpdateNotice = {
+						currentVersion: result.currentVersion,
+						availableVersion: result.availableVersion,
+						channel: result.channel,
+						status: result.status ?? "available",
+					};
+					if (!sameHostUpdateRelease(hostUpdateNotice, nextNotice)) {
+						publishHostUpdate(nextNotice);
+					}
+					return nextNotice;
+				}
+				return hostUpdateNotice ?? null;
+			} catch {
+				return hostUpdateNotice ?? null;
+			} finally {
+				hostUpdateCheckingPromise = null;
 			}
-		} catch {
-		} finally {
-			hostUpdateChecking = false;
-		}
+		})();
+		return await hostUpdateCheckingPromise;
 	};
 
 	requestHostUpdate = (): void => {

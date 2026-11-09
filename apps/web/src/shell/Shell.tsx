@@ -41,10 +41,12 @@ import {
 	writeThemeHint,
 } from "../themes";
 import {
+	checkHostUpdates,
 	type ConnectionStatus,
 	hostUrl,
 	runHostUpdate,
 	supportsFonts,
+	supportsHostCheckUpdates,
 	supportsHostUpdateRun,
 	supportsUserThemes,
 } from "../transport";
@@ -99,7 +101,10 @@ export function Shell() {
 		openReview && openReviewUrl ? { ...openReview, url: openReviewUrl } : openReview;
 	const hasActiveWorkspace = activeWorkspaceId != null;
 	const protocolVersion = useAppStore((s) => s.protocolVersion);
-	const updates = useUpdates(supportsHostUpdateRun(protocolVersion) ? runHostUpdate : null);
+	const updates = useUpdates(
+		supportsHostUpdateRun(protocolVersion) ? runHostUpdate : null,
+		supportsHostCheckUpdates(protocolVersion) ? checkHostUpdates : null,
+	);
 	const windowControls = useNativeWindowControls();
 	const [newWorkspaceProjectId, setNewWorkspaceProjectId] = useState<string | null>(null);
 

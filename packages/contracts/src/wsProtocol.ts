@@ -135,7 +135,8 @@ export type TemplateReadLocation =
 	| { projectId: string; workspaceId?: never }
 	| { workspaceId?: never; projectId?: never };
 
-export const PROTOCOL_VERSION = 102;
+export const PROTOCOL_VERSION = 103;
+export const HOST_UPDATE_CHECK_PROTOCOL_VERSION = 103;
 export const FONTS_PROTOCOL_VERSION = 102;
 export const CUSTOM_ENDPOINTS_PROTOCOL_VERSION = 101;
 export const PI_PACKAGES_PROTOCOL_VERSION = 100;
@@ -193,7 +194,7 @@ export const FEEDBACK_SURVEY_PROTOCOL_VERSION = 97;
 
 export type HostPlatform = "darwin" | "linux" | "win32";
 
-export type HostUpdateStatus = "available" | "running" | "succeeded" | "failed";
+export type HostUpdateStatus = "available" | "running" | "succeeded" | "failed" | "idle";
 
 export interface HostUpdateNotice {
 	currentVersion: string;
@@ -374,6 +375,7 @@ export const WS_METHODS = {
 	providerJbcentralUpdate: "provider.jbcentralUpdate",
 	providerJbcentralQuota: "provider.jbcentralQuota",
 	hostUpdate: "host.update",
+	hostCheckUpdates: "host.checkUpdates",
 	settingsUpdate: "settings.update",
 	environmentGet: "environment.get",
 	environmentUpdate: "environment.update",
@@ -1100,6 +1102,7 @@ export interface WsMethodMap {
 	"provider.jbcentralUpdate": { params: Record<string, never>; result: JbcentralActionResult };
 	"provider.jbcentralQuota": { params: { force?: boolean }; result: JbcentralQuotaSnapshot };
 	"host.update": { params: Record<string, never>; result: Ack };
+	"host.checkUpdates": { params: Record<string, never>; result: HostUpdateNotice | null };
 	"settings.update": { params: { config: AppConfigUpdate }; result: AppConfig };
 	"environment.get": { params: Record<string, never>; result: HostEnvironmentStatus };
 	"environment.update": {

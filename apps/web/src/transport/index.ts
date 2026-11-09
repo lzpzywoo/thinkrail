@@ -15,6 +15,7 @@ export {
 } from "./skillLoad";
 export type { ConnectionStatus, TransportOptions } from "./transport";
 export {
+	checkHostUpdates,
 	forgetInAppSurvey,
 	getTransport,
 	initTransport,
@@ -23,6 +24,7 @@ export {
 	runHostUpdate,
 	supportsChangeMutations,
 	supportsFonts,
+	supportsHostCheckUpdates,
 	supportsHostUpdateRun,
 	supportsPiPackages,
 	supportsPlanReview,

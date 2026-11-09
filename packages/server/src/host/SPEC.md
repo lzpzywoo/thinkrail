@@ -594,10 +594,11 @@ channel fan-out, and the process-boot wrapper both launchers share.
   for one window and has no push channel.
 - **CLI update lifecycle:** a launcher may supply one optional asynchronous notice producer, fixed interval,
   and parameterless update runner. `createServer` starts checks after listening without awaiting them and never
-  overlaps checks. A newer release becomes the retained `available` snapshot in later welcomes. The v70
-  `host.update` request acknowledges after starting one detached, server-single-flighted run; running,
-  succeeded, and failed are full replacements on `host.updateAvailable` for every client. Success latches until
-  host restart and does not shut down or relaunch the unsupervised process; failure permits retry and exposes no
+  overlaps checks. A newer release becomes the retained `available` snapshot in later welcomes, while an
+  up-to-date source release reports `idle`. The v70 `host.update` request acknowledges after starting one detached,
+  server-single-flighted run; running, succeeded, and failed are full replacements on `host.updateAvailable` for every client.
+  The v103 (`HOST_UPDATE_CHECK_PROTOCOL_VERSION`) parameterless `host.checkUpdates` request checks and returns the latest notice.
+  Success latches until host restart and does not shut down or relaunch the unsupervised process; failure permits retry and exposes no
   child output or arbitrary diagnostic. Discovery failures preserve known state, shutdown makes late results
   inert, and the host never learns feed, installer, command, path, channel, or version selection.
 - **Survey invitation delivery:** the three user-send handlers share one post-`ackSend` path that
