@@ -1,7 +1,7 @@
 import type { Provider } from "@earendil-works/pi-ai";
 import type { OAuthCredentials, OAuthLoginCallbacks } from "@earendil-works/pi-ai/oauth";
 import { configurePiRuntimeGenerationInitializer } from "./agent";
-import { bootHost } from "./host";
+import { bootHost, createSourceHostUpdate } from "./host";
 
 if (process.env.THINKRAIL_E2E_FAKE_OAUTH === "1") {
 	const fakeOauth = {
@@ -107,6 +107,7 @@ const { port } = await bootHost({
 	portMode: envPort ? "exact" : "free",
 	resolveShellEnv: true,
 	...(staticDir ? { staticDir } : {}),
+	hostUpdate: createSourceHostUpdate(),
 	analytics: {
 		channel: "dev",
 		build: "source",

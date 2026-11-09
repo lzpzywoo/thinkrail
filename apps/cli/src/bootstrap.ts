@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { type BuildKind, bootHost } from "@thinkrail/server";
+import { type BuildKind, bootHost, createSourceHostUpdate } from "@thinkrail/server";
 import { spawnDetached } from "@thinkrail/shared/spawn";
 import { printStartupMark } from "@thinkrail/shared/startupMark";
 import { channel, posthogProjectKey, version } from "@thinkrail/shared/version";
@@ -57,10 +57,11 @@ async function bootstrap(build: BuildKind): Promise<void> {
 		console.warn(`Web app not found at ${staticDir} — run \`bun run build:web\` to build the UI.`);
 	}
 
-	const hostUpdate = createCliHostUpdate(build, channel, version, {
-		platform: process.platform,
-		execPath: process.execPath,
-	});
+	const hostUpdate =
+		createCliHostUpdate(build, channel, version, {
+			platform: process.platform,
+			execPath: process.execPath,
+		}) ?? (build === "source" ? createSourceHostUpdate() : undefined);
 	const { server, port, requested } = await bootHost({
 		port: options.port,
 		host: options.host,
