@@ -79,9 +79,7 @@ export function findRepoRoot(cwd?: string, gitRunner: GitRunner = defaultGitRunn
 	const dir = cwd ? resolve(cwd) : process.cwd();
 	const res = gitRunner(["rev-parse", "--show-toplevel"], dir);
 	if (!res.launched || res.exitCode !== 0) {
-		throw new Error(
-			`Not inside a git repository: ${res.stderr.trim() || "rev-parse failed"}`,
-		);
+		throw new Error(`Not inside a git repository: ${res.stderr.trim() || "rev-parse failed"}`);
 	}
 	return res.stdout.trim().replace(/\\/g, "/");
 }
@@ -121,7 +119,7 @@ export function ensureUpstreamRemote(
 
 	for (const line of lines) {
 		const match = /^upstream\s+(\S+)\s+\((?:fetch|push)\)$/.exec(line.trim());
-		if (match && match[1]) {
+		if (match?.[1]) {
 			hasUpstream = true;
 			currentUpstreamUrl = match[1];
 			break;
@@ -374,9 +372,7 @@ export interface SourceHostUpdate {
 	run(): Promise<void>;
 }
 
-export function createSourceHostUpdate(
-	options: SourceUpdateOptions = {},
-): SourceHostUpdate {
+export function createSourceHostUpdate(options: SourceUpdateOptions = {}): SourceHostUpdate {
 	return {
 		intervalMs: DEFAULT_CHECK_INTERVAL_MS,
 		check: async () => {

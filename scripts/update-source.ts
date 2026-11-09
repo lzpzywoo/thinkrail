@@ -1,11 +1,7 @@
 #!/usr/bin/env bun
 
 import { createInterface } from "node:readline/promises";
-import {
-	checkSourceUpdateAvailable,
-	executeSourceUpdate,
-	findRepoRoot,
-} from "@thinkrail/server";
+import { checkSourceUpdateAvailable, executeSourceUpdate, findRepoRoot } from "@thinkrail/server";
 
 interface CliFlags {
 	checkOnly: boolean;
@@ -76,7 +72,9 @@ async function run(): Promise<void> {
 	const repoRoot = findRepoRoot();
 
 	if (flags.checkOnly) {
-		console.log("Checking for ThinkRail updates from official repository (https://github.com/JetBrains/thinkrail.git)...");
+		console.log(
+			"Checking for ThinkRail updates from official repository (https://github.com/JetBrains/thinkrail.git)...",
+		);
 		try {
 			const status = checkSourceUpdateAvailable({ repoRoot });
 			console.log(`\nLocal commit:    main@${status.currentShort} (${status.currentCommit})`);
@@ -87,13 +85,16 @@ async function run(): Promise<void> {
 				console.log("\n[*] ThinkRail is already up to date.");
 			}
 		} catch (err) {
-			console.error("\n[!] Failed to check for updates:", err instanceof Error ? err.message : String(err));
+			console.error(
+				"\n[!] Failed to check for updates:",
+				err instanceof Error ? err.message : String(err),
+			);
 			process.exit(1);
 		}
 		return;
 	}
 
-	let shouldRun = true;
+	const shouldRun = true;
 	while (shouldRun) {
 		console.log("\n=== ThinkRail Source Auto-Update ===");
 		try {
@@ -116,11 +117,15 @@ async function run(): Promise<void> {
 			console.error("\n[✗] Update failed:", err instanceof Error ? err.message : String(err));
 			console.log("To resolve issues:");
 			console.log("  - If you have uncommitted changes: commit or stash them with `git stash`.");
-			console.log("  - If you have merge conflicts: reconcile your local branch with upstream/main.");
+			console.log(
+				"  - If you have merge conflicts: reconcile your local branch with upstream/main.",
+			);
 
 			const retry = await askRetry();
 			if (!retry) {
-				console.log("\nUpdate aborted. You can try again at any time by running: bun run update:source");
+				console.log(
+					"\nUpdate aborted. You can try again at any time by running: bun run update:source",
+				);
 				process.exit(1);
 			}
 		}
