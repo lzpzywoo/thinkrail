@@ -2580,6 +2580,8 @@
 	"updates.settings.hostDescription": "ThinkRail checks this host for new releases. Updates run on the machine hosting ThinkRail.",
 	"updates.settings.nativeDescription": "ThinkRail checks for updates in the background. Downloads and installation begin only when you choose them.",
 	"updates.settings.title": "Software updates",
+	"updates.sourceManualGuidance": "Run <0>bun run update:source</0> on the host machine to update from source, or click Update below.",
+	"updates.sourceRestartGuidance": "ThinkRail source update complete. Restarting server to run version {{version}}…",
 	"updates.version.available": "Available: {{version}}",
 	"updates.version.current": "Current: {{version}} · {{channel}} channel",
 	"updates.version.native": "Version {{version}} · {{channel}} channel",

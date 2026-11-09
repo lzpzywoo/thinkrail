@@ -286,6 +286,34 @@ test("a succeeded host update latches manual restart guidance", () => {
 	expect(renderAffordance(updates)).toContain("Restart host");
 });
 
+test("source update channel renders source guidance and manual command", () => {
+	const sourceNotice: HostUpdateNotice = {
+		currentVersion: "main@344aafc",
+		availableVersion: "main@1aba630",
+		channel: "source",
+		status: "available",
+	};
+	const markup = render(hostUpdates(sourceNotice, true));
+	expect(markup).toContain('data-testid="update-run-host"');
+	expect(markup).toContain("ThinkRail main@1aba630 is available");
+
+	const failedSourceNotice: HostUpdateNotice = {
+		...sourceNotice,
+		status: "failed",
+	};
+	const failedMarkup = render(hostUpdates(failedSourceNotice, true));
+	expect(failedMarkup).toContain('data-testid="update-retry"');
+	expect(failedMarkup).toContain("bun run update:source");
+
+	const succeededSourceNotice: HostUpdateNotice = {
+		...sourceNotice,
+		status: "succeeded",
+	};
+	const succeededMarkup = render(hostUpdates(succeededSourceNotice, true));
+	expect(succeededMarkup).toContain('data-testid="update-host-restart-guidance"');
+	expect(succeededMarkup).toContain("Restarting server");
+});
+
 test("failed lifecycle and request rejection offer retry plus fixed manual fallback", () => {
 	for (const updates of [
 		hostUpdates(hostNotice("failed"), true),

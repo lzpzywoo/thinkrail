@@ -246,10 +246,17 @@ export function UpdateSettings({ updates }: UpdateSettingsProps) {
 						data-testid="update-command-guidance"
 						className="rounded-sm border border-border-default bg-container-elevated-bg p-8 text-text-default tr-text-ui"
 					>
-						<T
-							i18nKey="updates.manualGuidance"
-							components={[<code key="command" className="tr-code-text text-primary" />]}
-						/>
+						{channel === "source" ? (
+							<T
+								i18nKey="updates.sourceManualGuidance"
+								components={[<code key="command" className="tr-code-text text-primary" />]}
+							/>
+						) : (
+							<T
+								i18nKey="updates.manualGuidance"
+								components={[<code key="command" className="tr-code-text text-primary" />]}
+							/>
+						)}
 					</p>
 				) : null}
 
@@ -258,7 +265,9 @@ export function UpdateSettings({ updates }: UpdateSettingsProps) {
 						data-testid="update-host-restart-guidance"
 						className="rounded-sm border border-border-default bg-container-elevated-bg p-8 text-text-default tr-text-ui"
 					>
-						{t("updates.restartGuidance", { version: availableVersion })}
+						{channel === "source"
+							? t("updates.sourceRestartGuidance", { version: availableVersion })
+							: t("updates.restartGuidance", { version: availableVersion })}
 					</p>
 				) : null}
 
