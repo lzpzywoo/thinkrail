@@ -1,5 +1,6 @@
 import {
 	RiDownloadCloud2Line as DownloadCloud,
+	RiExternalLinkLine as ExternalLink,
 	RiRefreshLine as Refresh,
 	RiRestartLine as Restart,
 } from "@remixicon/react";
@@ -13,7 +14,14 @@ interface UpdateSettingsProps {
 	updates: UpdatesController;
 }
 
-type Translate = ReturnType<typeof useT>;
+const GITHUB_REPO_URL = "https://github.com/JetBrains/thinkrail";
+
+export function getGitHubCommitUrl(version: string | undefined): string | null {
+	if (!version) return null;
+	const match = version.match(/(?:main@|^)([0-9a-f]{7,40})$/i);
+	if (!match?.[1]) return null;
+	return `${GITHUB_REPO_URL}/commit/${match[1]}`;
+}
 
 function nativeStatusCopy(
 	t: Translate,
@@ -79,6 +87,8 @@ function nativeStatusCopy(
 	}
 }
 
+type Translate = ReturnType<typeof useT>;
+
 function hostNoticeCopy(
 	t: Translate,
 	state: HostUpdateNotice,
@@ -91,6 +101,11 @@ function hostNoticeCopy(
 		};
 	}
 	switch (state.status) {
+		case "idle":
+			return {
+				title: t("updates.host.idle.title"),
+				detail: t("updates.host.idle.detail"),
+			};
 		case "running":
 			return {
 				title: t("updates.host.running.title", { version: state.availableVersion }),
@@ -170,6 +185,10 @@ export function UpdateSettings({ updates }: UpdateSettingsProps) {
 	const currentVersion = hostNotice?.currentVersion ?? nativeState?.version;
 	const channel = hostNotice?.channel ?? publicChannel(nativeState?.channel);
 	const availableVersion = hostNotice?.availableVersion ?? nativeState?.availableVersion;
+	const isChecking =
+		updates.source === "native" ? checking : (updates.source === "host" && updates.isChecking);
+	const currentCommitUrl = getGitHubCommitUrl(currentVersion);
+	const availableCommitUrl = getGitHubCommitUrl(availableVersion);
 	const retry =
 		updates.source === "native" && failedAction
 			? failedAction === "check"
@@ -272,17 +291,45 @@ export function UpdateSettings({ updates }: UpdateSettingsProps) {
 				) : null}
 
 				<div className="flex flex-wrap items-center justify-between gap-8 border-border-default border-t pt-8">
-					<span data-testid="update-version" className="text-text-muted tr-text-metadata">
-						{currentVersion && channel
-							? updates.source === "host"
-								? t("updates.version.current", { version: currentVersion, channel })
-								: t("updates.version.native", { version: currentVersion, channel })
-							: t("updates.version.unavailable")}
-					</span>
-					{availableVersion ? (
-						<span className="text-text-muted tr-text-metadata">
-							{t("updates.version.available", { version: availableVersion })}
+					<div className="flex items-center gap-6">
+						<span data-testid="update-version" className="text-text-muted tr-text-metadata">
+							{currentVersion && channel
+								? updates.source === "host"
+									? t("updates.version.current", { version: currentVersion, channel })
+									: t("updates.version.native", { version: currentVersion, channel })
+								: t("updates.version.unavailable")}
 						</span>
+						{currentCommitUrl ? (
+							<a
+								href={currentCommitUrl}
+								target="_blank"
+								rel="noopener noreferrer"
+								data-testid="update-current-commit-link"
+								className="inline-flex items-center gap-2 text-primary hover:underline tr-text-metadata"
+							>
+								<span>{t("updates.version.commitLink")}</span>
+								<ExternalLink aria-hidden="true" className="size-12" />
+							</a>
+						) : null}
+					</div>
+					{availableVersion ? (
+						<div className="flex items-center gap-6">
+							<span data-testid="update-available-version" className="text-text-muted tr-text-metadata">
+								{t("updates.version.available", { version: availableVersion })}
+							</span>
+							{availableCommitUrl ? (
+								<a
+									href={availableCommitUrl}
+									target="_blank"
+									rel="noopener noreferrer"
+									data-testid="update-available-commit-link"
+									className="inline-flex items-center gap-2 text-primary hover:underline tr-text-metadata"
+								>
+									<span>{t("updates.version.commitLink")}</span>
+									<ExternalLink aria-hidden="true" className="size-12" />
+								</a>
+							) : null}
+						</div>
 					) : null}
 				</div>
 			</div>
@@ -335,19 +382,33 @@ export function UpdateSettings({ updates }: UpdateSettingsProps) {
 						</Button>
 					) : null}
 				</div>
-			) : updates.canRun && (hostAvailable || hostFailed) ? (
+			) : (
 				<div className="flex flex-wrap justify-end gap-8">
-					<Button
-						variant={hostFailed ? "outline" : "primary"}
-						size="l"
-						iconLeft={hostFailed ? Refresh : DownloadCloud}
-						data-testid={hostFailed ? "update-retry" : "update-run-host"}
-						onClick={updates.runUpdate}
-					>
-						{hostFailed ? t("common.retry") : t("updates.action.run")}
-					</Button>
+					{updates.canCheck ? (
+						<Button
+							variant="outline"
+							size="l"
+							iconLeft={Refresh}
+							data-testid="update-check-host"
+							disabled={isChecking}
+							onClick={updates.checkForUpdates}
+						>
+							{isChecking ? t("updates.action.checking") : t("updates.action.check")}
+						</Button>
+					) : null}
+					{updates.canRun && (hostAvailable || hostFailed) ? (
+						<Button
+							variant={hostFailed ? "outline" : "primary"}
+							size="l"
+							iconLeft={hostFailed ? Refresh : DownloadCloud}
+							data-testid={hostFailed ? "update-retry" : "update-run-host"}
+							onClick={updates.runUpdate}
+						>
+							{hostFailed ? t("common.retry") : t("updates.action.run")}
+						</Button>
+					) : null}
 				</div>
-			) : null}
+			)}
 
 			{ready ? (
 				<p className="text-text-muted tr-text-metadata">{t("updates.settings.deferral")}</p>

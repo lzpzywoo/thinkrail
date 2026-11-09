@@ -325,6 +325,26 @@ test("source update channel renders source guidance and manual command", () => {
 	expect(succeededMarkup).toContain("Restarting server");
 });
 
+test("host update displays commit links and check button when idle or available", () => {
+	const idleNotice: HostUpdateNotice = {
+		currentVersion: "main@344aafc",
+		availableVersion: "main@344aafc",
+		channel: "source",
+		status: "idle",
+	};
+	const markup = render(hostUpdates(idleNotice, false, false, true, false));
+	expect(markup).toContain('data-status="idle"');
+	expect(markup).toContain("ThinkRail is up to date");
+	expect(markup).toContain('data-testid="update-check-host"');
+	expect(markup).toContain("Check for Updates");
+	expect(markup).toContain('data-testid="update-current-commit-link"');
+	expect(markup).toContain('href="https://github.com/JetBrains/thinkrail/commit/344aafc"');
+
+	const checkingMarkup = render(hostUpdates(idleNotice, false, false, true, true));
+	expect(checkingMarkup).toContain("Checking…");
+	expect(checkingMarkup).toContain("disabled");
+});
+
 test("failed lifecycle and request rejection offer retry plus fixed manual fallback", () => {
 	for (const updates of [
 		hostUpdates(hostNotice("failed"), true),

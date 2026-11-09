@@ -27,7 +27,15 @@ export function UpdateReadyButton({
 		nativeState?.status === "ready" ||
 		nativeState?.status === "installing" ||
 		nativeState?.status === "error";
-	if (!nativeActionable && !hostUpdate) return null;
+	const hostActionable =
+		hostUpdate &&
+		(hostRequestFailed ||
+			hostStatus === "failed" ||
+			hostStatus === "running" ||
+			hostStatus === "succeeded" ||
+			hostStatus === "available" ||
+			hostStatus === undefined);
+	if (!nativeActionable && !hostActionable) return null;
 
 	const availableVersion = updates.state.availableVersion;
 	let label = t("updates.button.attention");
