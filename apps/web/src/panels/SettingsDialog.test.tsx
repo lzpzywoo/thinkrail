@@ -8,8 +8,8 @@ import {
 } from "@thinkrail/contracts";
 import { t } from "@thinkrail/locales/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { SettingsSection, useAppStore } from "@/store";
-import { SettingsDialog, SettingsNavFooter } from "./SettingsDialog";
+import { SettingsSection } from "@/store";
+import { SettingsNavFooter } from "./SettingsDialog";
 import {
 	filterSettingsNavGroups,
 	resolveSettingsSection,

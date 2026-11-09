@@ -41,8 +41,8 @@ import {
 	writeThemeHint,
 } from "../themes";
 import {
-	checkHostUpdates,
 	type ConnectionStatus,
+	checkHostUpdates,
 	hostUrl,
 	runHostUpdate,
 	supportsFonts,

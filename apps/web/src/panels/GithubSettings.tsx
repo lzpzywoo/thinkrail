@@ -19,8 +19,8 @@ export function ThinkRailRepoSection({
 	currentVersion,
 	upstreamVersion,
 }: {
-	currentVersion?: string | null;
-	upstreamVersion?: string | null;
+	currentVersion?: string | null | undefined;
+	upstreamVersion?: string | null | undefined;
 }) {
 	const t = useT();
 
@@ -62,12 +62,18 @@ export function ThinkRailRepoSection({
 				</div>
 				<div className="flex flex-wrap items-center gap-12 border-border-default border-t pt-8">
 					{currentVersion ? (
-						<span className="text-text-muted tr-text-metadata" data-testid="settings-gh-repo-current">
+						<span
+							className="text-text-muted tr-text-metadata"
+							data-testid="settings-gh-repo-current"
+						>
 							{t("settings.github.repo.currentVersion", { version: currentVersion })}
 						</span>
 					) : null}
 					{upstreamVersion ? (
-						<span className="text-text-muted tr-text-metadata" data-testid="settings-gh-repo-upstream">
+						<span
+							className="text-text-muted tr-text-metadata"
+							data-testid="settings-gh-repo-upstream"
+						>
 							{t("settings.github.repo.upstreamVersion", { version: upstreamVersion })}
 						</span>
 					) : null}

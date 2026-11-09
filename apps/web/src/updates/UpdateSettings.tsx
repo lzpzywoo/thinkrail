@@ -16,7 +16,7 @@ interface UpdateSettingsProps {
 
 const GITHUB_REPO_URL = "https://github.com/JetBrains/thinkrail";
 
-export function getGitHubCommitUrl(version: string | undefined): string | null {
+export function getGitHubCommitUrl(version: string | null | undefined): string | null {
 	if (!version) return null;
 	const match = version.match(/(?:main@|^)([0-9a-f]{7,40})$/i);
 	if (!match?.[1]) return null;
@@ -186,7 +186,7 @@ export function UpdateSettings({ updates }: UpdateSettingsProps) {
 	const channel = hostNotice?.channel ?? publicChannel(nativeState?.channel);
 	const availableVersion = hostNotice?.availableVersion ?? nativeState?.availableVersion;
 	const isChecking =
-		updates.source === "native" ? checking : (updates.source === "host" && updates.isChecking);
+		updates.source === "native" ? checking : updates.source === "host" && updates.isChecking;
 	const currentCommitUrl = getGitHubCommitUrl(currentVersion);
 	const availableCommitUrl = getGitHubCommitUrl(availableVersion);
 	const retry =
@@ -314,7 +314,10 @@ export function UpdateSettings({ updates }: UpdateSettingsProps) {
 					</div>
 					{availableVersion ? (
 						<div className="flex items-center gap-6">
-							<span data-testid="update-available-version" className="text-text-muted tr-text-metadata">
+							<span
+								data-testid="update-available-version"
+								className="text-text-muted tr-text-metadata"
+							>
 								{t("updates.version.available", { version: availableVersion })}
 							</span>
 							{availableCommitUrl ? (

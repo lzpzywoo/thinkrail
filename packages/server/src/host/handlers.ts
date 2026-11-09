@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import type {
 	Ack,
+	HostUpdateNotice,
 	OpenBranchReview,
 	ReviewComment,
 	ReviewFixDetails,

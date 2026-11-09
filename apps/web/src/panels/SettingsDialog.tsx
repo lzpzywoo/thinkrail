@@ -1,7 +1,7 @@
 import {
-	RiCloseLine,
 	RiExternalLinkLine as ExternalLink,
 	RiGithubLine as GithubIcon,
+	RiCloseLine,
 } from "@remixicon/react";
 import { useT } from "@thinkrail/locales/react";
 import { IconButton } from "@thinkrail/ui/button";
@@ -46,7 +46,8 @@ export function SettingsNavFooter({
 	const t = useT();
 	const hostUpdate = useAppStore((s) => s.hostUpdate);
 	const hostAppVersion = useAppStore((s) => s.hostAppVersion);
-	const version = versionDisplay !== undefined ? versionDisplay : (hostUpdate?.currentVersion ?? hostAppVersion);
+	const version =
+		versionDisplay !== undefined ? versionDisplay : (hostUpdate?.currentVersion ?? hostAppVersion);
 
 	return (
 		<div

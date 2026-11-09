@@ -109,14 +109,8 @@ beforeEach(() => {
 	resetSurveyForTests();
 	repo = join(dataDir, "repo");
 	mkdirSync(repo);
-	const initRes = Bun.spawnSync(["git", "-C", repo, "init", "-b", "main"], {
-		stdout: "ignore",
-		stderr: "ignore",
-	});
-	if (!initRes.success) {
-		git(repo, "init");
-		git(repo, "checkout", "-b", "main");
-	}
+	git(repo, "init");
+	git(repo, "symbolic-ref", "HEAD", "refs/heads/main");
 	git(repo, "config", "user.email", "t@thinkrail.test");
 	git(repo, "config", "user.name", "test");
 	git(repo, "config", "commit.gpgsign", "false");

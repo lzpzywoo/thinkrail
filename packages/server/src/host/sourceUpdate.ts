@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import type { HostUpdateNotice } from "@thinkrail/contracts";
+import type { HostUpdateNotice, HostUpdateStatus } from "@thinkrail/contracts";
 import { type SpawnSyncCaptured, spawnSyncCaptured } from "@thinkrail/shared/spawn";
 
 export const DEFAULT_UPSTREAM_URL = "https://github.com/JetBrains/thinkrail.git";

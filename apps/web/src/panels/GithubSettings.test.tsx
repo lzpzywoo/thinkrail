@@ -5,10 +5,7 @@ import { ThinkRailRepoSection } from "./GithubSettings";
 describe("ThinkRailRepoSection", () => {
 	test("renders current version, upstream version, and repository link", () => {
 		const markup = renderToStaticMarkup(
-			<ThinkRailRepoSection
-				currentVersion="main@abcdef0"
-				upstreamVersion="main@1234567"
-			/>,
+			<ThinkRailRepoSection currentVersion="main@abcdef0" upstreamVersion="main@1234567" />,
 		);
 
 		expect(markup).toContain('data-testid="settings-gh-repo"');

@@ -628,7 +628,11 @@ a project picker, the prompt hero, and the reused
   Notifications, Privacy, Updates). Integrations keeps section id `github`: today it is the GitHub CLI page
   and it is the home for further integrations. Below `md` the same list is a horizontal scrolling strip without group labels. The
   Feedback card (`settings-nav-feedback`, “Share feedback”) belongs to that list at
-  every width, pinned to the rail's bottom at `md`+. The pure nav data — groups, protocol and
+  every width, pinned to the rail's bottom at `md`+. Beneath it, `SettingsNavFooter`
+  renders the running ThinkRail version (clicking it navigates to Updates when available)
+  and an external link to the ThinkRail GitHub repository. In `GithubSettings`, a top
+  ThinkRail repository card displays the local running version and upstream latest version
+  with a quick action to check updates. The pure nav data — groups, protocol and
   injected-content gating, and resolving a requested section to an available one (a gated or retired id,
   e.g. an old `review` / `line-width` deep link, falls back to Appearance) — lives in `panels/settingsNav.ts`,
   so the dialog only renders it. `settingsOpen`/`settingsSection` live in the store so the gear AND the
