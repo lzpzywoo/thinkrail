@@ -628,7 +628,12 @@ channel fan-out, and the process-boot wrapper both launchers share.
 enabled/confirmed choice before entering analytics attribution.
 
 - **Public surface (barrel):** `createServer`, `CreateServerOptions`, `RunningServer`, `bootHost`,
-  `BootHostOptions`, `BootedHost`, `BuildKind`, `reportDesktopError`.
+  `BootHostOptions`, `BootedHost`, `BuildKind`, `reportDesktopError`, `createSourceHostUpdate`,
+  `executeSourceUpdate`, `checkSourceUpdateAvailable`, `checkWorkingTreeClean`, `ensureUpstreamRemote`,
+  `fetchUpstream`, `findRepoRoot`, `pullUpstream`, `scheduleProcessRestart`, `DEFAULT_CHECK_INTERVAL_MS`,
+  `DEFAULT_UPSTREAM_BRANCH`, `DEFAULT_UPSTREAM_URL`, `defaultGitRunner`, `defaultProcessRunner`,
+  `SourceHostUpdate`, `SourceUpdateCheckResult`, `SourceUpdateOptions`, `GitRunner`, `ProcessRunner`,
+  `ProcessRunResult`, `ProcessRestartOptions`.
 - **Allowed deps:** `contracts` (`PROTOCOL_VERSION`, feature-introduction versions, `WS_CHANNELS`); `shared` (`freePort`, `shellEnv` — for
   `boot.ts`; `codedError`); `persistence` (`dataDir` — where `crashLog.ts` writes); `pi-todos/core` (reduced synchronous
   task snapshots, with group status still core-owned); the feature modules it composes (per the parent dependency graph, incl. `fs`'s
