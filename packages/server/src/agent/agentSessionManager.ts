@@ -100,6 +100,12 @@ import {
 	toSkillCommands,
 } from "./extensions";
 import {
+	assertHostWorkAllowed,
+	hostUpdateRunning,
+	lockHostUpdate,
+	withHostWork,
+} from "./hostUpdateAdmission";
+import {
 	createMcpSessionHost,
 	type McpProjectPolicy,
 	type McpSessionHost,
@@ -206,6 +212,29 @@ const pendingSessionPreparations = new Map<string, Set<Promise<unknown>>>();
 const sessionTeardowns = new Map<string, Promise<void>>();
 const tearingDownEntries = new Map<string, Entry>();
 
+export function acquireHostUpdateLock(): () => void {
+	return lockHostUpdate(
+		() =>
+			pendingSessionPreparations.size > 0 ||
+			sessionTeardowns.size > 0 ||
+			attaching.size > 0 ||
+			[...sessions.values()].some(
+				(entry) =>
+					!!reloadBlockedReason(entry) ||
+					!!entry.reloadRunning ||
+					entry.nudgePromptPending ||
+					backgroundWorkActive(entry),
+			),
+		() => {
+			for (const entry of sessions.values()) {
+				entry.commands.flushCompletions();
+				entry.subagents.flushCompletions();
+				reconsiderPendingReload(entry);
+			}
+		},
+	);
+}
+
 interface WorkspaceLifecycleToken {
 	global: number;
 	workspace: number;
@@ -233,7 +262,7 @@ function trackSessionPreparation<T>(
 ): Promise<T> {
 	if (!workspaceAcceptsSessions(workspaceId, token))
 		return Promise.reject(new Error(`Workspace is unavailable: ${workspaceId}`));
-	const pending = operation();
+	const pending = withHostWork(operation);
 	let preparations = pendingSessionPreparations.get(workspaceId);
 	if (!preparations) {
 		preparations = new Set();
@@ -578,6 +607,7 @@ export function nudgeSession(
 	send: () => Promise<void>;
 } {
 	const entry = mustGetEntry(sessionId);
+	admitRun(entry);
 	const state = stateFromEntry(entry);
 	if (state.needsInput) return { disposition: "needs_input", send: () => Promise.resolve() };
 	if (state.execution === "running" || entry.nudgePromptPending) {
@@ -899,6 +929,7 @@ function transcriptMessages(session: AgentSession): TranscriptMessage[] {
 }
 
 export async function reloadSessionResources(sessionId: string): Promise<void> {
+	assertHostWorkAllowed();
 	const entry = mustGetEntry(sessionId);
 	if (entry.reloadRunning) {
 		await entry.reloadRunning;
@@ -927,6 +958,7 @@ export async function requestSessionReload(sessionId: string): Promise<SessionRe
 }
 
 function reloadBlockedReason(entry: Entry): string | null {
+	if (hostUpdateRunning()) return "a host update is running";
 	if (entry.disposed || entry.resourcesClosing) return "the chat is closing";
 	if (entry.session.isStreaming || !entry.session.isIdle) return "the chat is busy";
 	if (entry.preflightReleases.size > 0 || entry.heldReservations.size > 0) {
@@ -959,6 +991,7 @@ function reconsiderPendingReload(entry: Entry): void {
 }
 
 function runGatedReload(entry: Entry): Promise<void> {
+	assertHostWorkAllowed();
 	if (entry.reloadRunning) return entry.reloadRunning;
 	entry.reloadPending = false;
 	entry.reloadPolicyGeneration = extensionPolicy.generation;
@@ -1012,6 +1045,7 @@ function runGatedReload(entry: Entry): Promise<void> {
 }
 
 function admitRun(entry: Entry): void {
+	assertHostWorkAllowed();
 	if (entry.reloadRunning) {
 		throw new Error("The chat is reloading its resources — try again in a moment.");
 	}
@@ -1394,7 +1428,11 @@ async function registerSession(
 	return prepared.result;
 }
 
-export async function createSession(input: CreateSessionInput): Promise<CreateSessionResult> {
+export function createSession(input: CreateSessionInput): Promise<CreateSessionResult> {
+	return withHostWork(() => createSessionInternal(input));
+}
+
+async function createSessionInternal(input: CreateSessionInput): Promise<CreateSessionResult> {
 	const lifecycleToken = captureWorkspaceLifecycle(input.workspaceId);
 	const generation = await getPiRuntimeGeneration();
 	const settingsManager = buildSessionSettings(
@@ -1475,6 +1513,7 @@ async function createParentSessionInternal(
 		},
 	});
 	const canDeliverCompletion = () =>
+		!hostUpdateRunning() &&
 		canUseSessionResources(sessionId, workspaceId) &&
 		!toolResponseWaiters.hasRecoverableCall() &&
 		!sessions.get(sessionId)?.reloadRunning;
@@ -2009,8 +2048,10 @@ function attachDiskSession(
 	if (sessions.has(sessionId)) return Promise.resolve();
 	let pending = attaching.get(sessionId);
 	if (!pending) {
-		pending = serializeSessionFileOperation(sessionId, () =>
-			openDiskSession(sessionId, workspaceId, cwd, lifecycleToken),
+		pending = withHostWork(() =>
+			serializeSessionFileOperation(sessionId, () =>
+				openDiskSession(sessionId, workspaceId, cwd, lifecycleToken),
+			),
 		).finally(() => attaching.delete(sessionId));
 		attaching.set(sessionId, pending);
 	}
@@ -2106,7 +2147,8 @@ export function ensureSessionAttached(
 	workspaceId: string,
 	cwd: string,
 ): Promise<boolean> {
-	return ensureSessionAttachedInternal(sessionId, workspaceId, cwd);
+	if (sessions.has(sessionId)) return ensureSessionAttachedInternal(sessionId, workspaceId, cwd);
+	return withHostWork(() => ensureSessionAttachedInternal(sessionId, workspaceId, cwd));
 }
 
 async function getSessionMessagesInternal(
@@ -2145,6 +2187,7 @@ export async function respondToTool(
 	response: unknown,
 ): Promise<void> {
 	const entry = mustGetEntry(sessionId);
+	assertHostWorkAllowed();
 	const live = entry.toolResponseWaiters.respond(toolCallId, response);
 	if (live.handled) {
 		publishEntryState(entry);
@@ -2285,6 +2328,7 @@ async function queueSessionMessage<T>(
 	images: ImageContent[] | undefined,
 	send: () => Promise<T>,
 ): Promise<T> {
+	const release = admitPreflight(entry, true);
 	const tracked: TrackedQueuedMessage = {
 		id: entry.nextQueuedMessageId++,
 		text,
@@ -2299,6 +2343,8 @@ async function queueSessionMessage<T>(
 		);
 		synchronizeQueueFromSession(entry);
 		throw error;
+	} finally {
+		release();
 	}
 }
 

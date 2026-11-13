@@ -31,6 +31,7 @@ import {
 } from "./agentSessionManager";
 import { archiveSubagentRun, publishSessionResourcesChanged } from "./chatResources";
 import { childBaseExtensionFactories, childExtensionFactories } from "./extensions";
+import { withHostWork } from "./hostUpdateAdmission";
 import { getPiRuntime } from "./piRuntime";
 import { isHostResourceId, isPiSessionId } from "./resourceIdentity";
 import {
@@ -248,27 +249,29 @@ export async function runReviewSubagent(
 	},
 	signal?: AbortSignal,
 ): Promise<ReviewSubagentRun> {
-	const child = await delegationServiceFor(workspaceId).createChild({
-		parent: parentSessionId,
-		info: { createdBy: "tool:request_review", roleName: "plan-reviewer" },
-		visibility: "hidden",
-		session: {
-			systemPrompt: role.systemPrompt,
-			tools: role.tools,
-			extensions: true,
-			contextFiles: true,
-			...(role.model ? { model: role.model } : {}),
-			...(role.thinkingLevel ? { thinkingLevel: role.thinkingLevel } : {}),
-		},
+	return withHostWork(async () => {
+		const child = await delegationServiceFor(workspaceId).createChild({
+			parent: parentSessionId,
+			info: { createdBy: "tool:request_review", roleName: "plan-reviewer" },
+			visibility: "hidden",
+			session: {
+				systemPrompt: role.systemPrompt,
+				tools: role.tools,
+				extensions: true,
+				contextFiles: true,
+				...(role.model ? { model: role.model } : {}),
+				...(role.thinkingLevel ? { thinkingLevel: role.thinkingLevel } : {}),
+			},
+		});
+		try {
+			const outcome = await child.runQueued(task, signal ? { signal } : {});
+			return {
+				childSessionId: child.sessionId,
+				status: outcome.status,
+				...(outcome.finalText !== undefined ? { finalText: outcome.finalText } : {}),
+			};
+		} finally {
+			await child.dispose().catch(() => {});
+		}
 	});
-	try {
-		const outcome = await child.runQueued(task, signal ? { signal } : {});
-		return {
-			childSessionId: child.sessionId,
-			status: outcome.status,
-			...(outcome.finalText !== undefined ? { finalText: outcome.finalText } : {}),
-		};
-	} finally {
-		await child.dispose().catch(() => {});
-	}
 }

@@ -6,18 +6,25 @@ import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
 import { createFauxCore, fauxAssistantMessage } from "@earendil-works/pi-ai/providers/faux";
 import { ModelRuntime, SessionManager } from "@earendil-works/pi-coding-agent";
 import {
+	acquireHostUpdateLock,
+	compactSession,
 	createSession,
 	disposeAllSessions,
 	followUpSession,
 	getSessionMessages,
 	getSessionState,
+	nudgeSession,
 	promptSession,
 	reloadSessionResources,
 	removeQueuedSession,
+	removeSession,
 	requestSessionReload,
 	setSessionManagerFactory,
 	settleSessionsForShutdown,
+	steerSession,
 } from "./agentSessionManager";
+import { runReviewSubagent } from "./delegation";
+import { completeOnce } from "./oneshot";
 import { configurePiRuntime } from "./piRuntime";
 
 const model = {
@@ -161,6 +168,9 @@ test("a reload requested while the turn streams is deferred and runs at settleme
 	faux.setResponses([fauxAssistantMessage("word ".repeat(60))]);
 	const turn = promptSession(p.sessionId, "Say many words.");
 	await waitFor(() => getSessionState(p.sessionId).execution === "running");
+	expect(() => acquireHostUpdateLock()).toThrow(
+		expect.objectContaining({ code: "HOST_UPDATE_BUSY" }),
+	);
 	expect(await requestSessionReload(p.sessionId)).toBe("deferred");
 	await expect(reloadSessionResources(p.sessionId)).rejects.toThrow(/busy/);
 	expect(reloads()).toBe(before);
@@ -175,6 +185,9 @@ test("a prompt held in preflight (a slash command) defers the reload until it is
 	const command = promptSession(p.sessionId, "/gate-wait");
 	await Bun.sleep(50);
 	expect(getSessionState(p.sessionId).execution).not.toBe("running");
+	expect(() => acquireHostUpdateLock()).toThrow(
+		expect.objectContaining({ code: "HOST_UPDATE_BUSY" }),
+	);
 	expect(await requestSessionReload(p.sessionId)).toBe("deferred");
 	expect(reloads()).toBe(before);
 	writeFileSync(latch, "");
@@ -208,6 +221,9 @@ test("removing a queued message keeps the others when the run settles with a rel
 	await followUpSession(p.sessionId, "slow: keep one");
 	await followUpSession(p.sessionId, "drop me");
 	await followUpSession(p.sessionId, "keep two");
+	expect(() => acquireHostUpdateLock()).toThrow(
+		expect.objectContaining({ code: "HOST_UPDATE_BUSY" }),
+	);
 	expect(await requestSessionReload(p.sessionId)).toBe("deferred");
 	writeFileSync(inputHold, "");
 	writeFileSync(reloadHold, "");
@@ -237,4 +253,64 @@ test("nothing is admitted while a reload runs", async () => {
 	await reload;
 	faux.setResponses([fauxAssistantMessage("ok")]);
 	await promptSession(p.sessionId, "hello");
+});
+
+test("host update closes admission and release is idempotent across subsequent locks", async () => {
+	const p = await parent();
+	const release = acquireHostUpdateLock();
+	const running = expect.objectContaining({ code: "HOST_UPDATE_RUNNING" });
+	try {
+		expect(() => acquireHostUpdateLock()).toThrow(running);
+		await expect(createSession({ workspaceId: p.workspaceId, cwd: p.cwd })).rejects.toThrow(
+			running,
+		);
+		await expect(promptSession(p.sessionId, "blocked")).rejects.toThrow(running);
+		await expect(steerSession(p.sessionId, "blocked")).rejects.toThrow(running);
+		await expect(followUpSession(p.sessionId, "blocked")).rejects.toThrow(running);
+		await expect(compactSession(p.sessionId)).rejects.toThrow(running);
+		expect(() => nudgeSession(p.sessionId, "blocked")).toThrow(running);
+		await expect(completeOnce({ prompt: "blocked" })).rejects.toThrow(running);
+		await expect(
+			runReviewSubagent(p.workspaceId, p.sessionId, "blocked", {
+				systemPrompt: "review",
+				tools: [],
+			}),
+		).rejects.toThrow(running);
+	} finally {
+		release();
+	}
+	const releaseNext = acquireHostUpdateLock();
+	try {
+		release();
+		await expect(promptSession(p.sessionId, "still blocked")).rejects.toThrow(running);
+	} finally {
+		releaseNext();
+	}
+	faux.setResponses([fauxAssistantMessage("ok")]);
+	await promptSession(p.sessionId, "allowed");
+});
+
+test("host update rejects preparation before its first await and asynchronous teardown", async () => {
+	const creating = parent();
+	expect(() => acquireHostUpdateLock()).toThrow(
+		expect.objectContaining({ code: "HOST_UPDATE_BUSY" }),
+	);
+	const p = await creating;
+	const removing = removeSession(p.sessionId);
+	expect(() => acquireHostUpdateLock()).toThrow(
+		expect.objectContaining({ code: "HOST_UPDATE_BUSY" }),
+	);
+	await removing;
+	acquireHostUpdateLock()();
+});
+
+test("an accepted nudge reserves the update window until its send completes", async () => {
+	const p = await parent();
+	const nudge = nudgeSession(p.sessionId, "continue");
+	expect(() => acquireHostUpdateLock()).toThrow(
+		expect.objectContaining({ code: "HOST_UPDATE_BUSY" }),
+	);
+	faux.setResponses([fauxAssistantMessage("ok")]);
+	await nudge.send();
+	acquireHostUpdateLock()();
 });

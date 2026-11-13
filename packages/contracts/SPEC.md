@@ -123,7 +123,9 @@ the palette ranks with — kept here so host-side search can rank with the same 
   same web bundle discovers these capabilities without importing a native SDK. An optional
   `HostUpdateNotice` carries a closed CLI-host update lifecycle; protocol-gated `host.update` is an empty
   request that can start only the launcher's pre-bound updater. The browser never supplies a command, path,
-  channel, version, URL, restart, or feed authority.
+  channel, version, URL, restart, or feed authority. Source notices may include an additive `failureReason`
+  (`busy`, `dirty`, `conflict`, `update`, `restart`) for localized recovery guidance; older clients ignore it.
+  No raw process output crosses this boundary.
 - **Forbidden:** any *value* import of a `pi` package; **any** import (even `type`) of
   `@earendil-works/pi-coding-agent` (pulls `node:fs`); the pi-ai **provider / API subpaths**
   (`/providers/*`, `/api/*`, `/bedrock-provider`, … — they statically load the Node provider SDKs); and

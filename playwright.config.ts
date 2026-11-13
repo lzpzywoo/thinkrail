@@ -99,6 +99,7 @@ export default defineConfig({
 			// Keep the suite hermetic: `model.list` fires a detached pi.dev catalog refresh (issue #98) that
 			// must never leave the machine in tests — PI_OFFLINE is pi's own convention and our guard honors it.
 			PI_OFFLINE: "1",
+			THINKRAIL_SOURCE_UPDATES: "0",
 			// Lane-local `central` + `code` stubs: deterministic and safe under process-level sharding.
 			PATH: hostPath,
 			SHELL: hermeticE2eShell(E2E_FAKE_BIN_DIR),

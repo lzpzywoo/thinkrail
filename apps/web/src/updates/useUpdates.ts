@@ -147,6 +147,19 @@ export function hasNativeUpdateSurface(
 	return state !== null && state.status !== "disabled";
 }
 
+export function hostActionAvailability(
+	status: HostUpdateNotice["status"],
+	hasRunner: boolean,
+	hasChecker: boolean,
+): { canRun: boolean; canCheck: boolean } {
+	const finished = status === "succeeded";
+	return {
+		canRun:
+			hasRunner && status !== undefined && status !== "idle" && status !== "running" && !finished,
+		canCheck: hasChecker && status !== "running" && !finished,
+	};
+}
+
 export function useUpdates(
 	hostUpdateRunner: HostUpdateRunner | null,
 	hostUpdateChecker: HostUpdateChecker | null = null,
@@ -194,12 +207,11 @@ export function useUpdates(
 		};
 	}
 	if (source === "host" && hostUpdate) {
-		const canRun =
-			hostUpdateRunner !== null &&
-			hostUpdate.status !== undefined &&
-			hostUpdate.status !== "idle" &&
-			hostUpdate.status !== "running";
-		const canCheck = hostUpdateChecker !== null && hostUpdate.status !== "running";
+		const { canRun, canCheck } = hostActionAvailability(
+			hostUpdate.status,
+			hostUpdateRunner !== null,
+			hostUpdateChecker !== null,
+		);
 		return {
 			source,
 			state: hostUpdate,

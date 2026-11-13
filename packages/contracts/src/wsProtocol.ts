@@ -201,6 +201,7 @@ export interface HostUpdateNotice {
 	availableVersion: string;
 	channel: string;
 	status?: HostUpdateStatus;
+	failureReason?: "busy" | "dirty" | "conflict" | "update" | "restart";
 }
 
 export interface ServerWelcome {
@@ -1264,6 +1265,12 @@ export interface WsResume {
 export type WsClientMessage = WsRequest | WsAck | WsResume;
 
 export type WsErrorCode =
+	| "HOST_UPDATE_BUSY"
+	| "HOST_UPDATE_RUNNING"
+	| "SOURCE_UPDATE_DIRTY"
+	| "SOURCE_UPDATE_CONFLICT"
+	| "SOURCE_UPDATE_FAILED"
+	| "SOURCE_UPDATE_RESTART_FAILED"
 	| "UNKNOWN_COMMIT"
 	| "PUSH_AUTH_FAILED"
 	| "NOT_GIT"

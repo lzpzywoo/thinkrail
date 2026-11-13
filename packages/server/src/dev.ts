@@ -92,7 +92,10 @@ if (process.env.THINKRAIL_E2E_FAKE_OAUTH === "1") {
 
 const host = process.env.THINKRAIL_HOST ?? "localhost";
 const staticDir = process.env.THINKRAIL_STATIC_DIR;
-const envPort = process.env.THINKRAIL_PORT;
+const envPort = process.env.THINKRAIL_RESTART_PORT ?? process.env.THINKRAIL_PORT;
+if (envPort !== undefined && (!/^\d+$/.test(envPort) || Number(envPort) > 65535)) {
+	throw new Error("Invalid ThinkRail host port");
+}
 const posthogApiKey =
 	process.env.THINKRAIL_DEV_POSTHOG === "1" ? process.env.THINKRAIL_POSTHOG_PROJECT_KEY : undefined;
 if (posthogApiKey) {
@@ -107,7 +110,7 @@ const { port } = await bootHost({
 	portMode: envPort ? "exact" : "free",
 	resolveShellEnv: true,
 	...(staticDir ? { staticDir } : {}),
-	hostUpdate: createSourceHostUpdate(),
+	hostUpdate: process.env.THINKRAIL_SOURCE_UPDATES === "0" ? undefined : createSourceHostUpdate(),
 	analytics: {
 		channel: "dev",
 		build: "source",

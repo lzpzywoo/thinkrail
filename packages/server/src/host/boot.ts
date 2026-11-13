@@ -1,3 +1,4 @@
+import { CodedError } from "@thinkrail/shared/codedError";
 import { findFreePort } from "@thinkrail/shared/freePort";
 import { resolveShellEnv } from "@thinkrail/shared/shellEnv";
 import { reportError } from "../analytics";
@@ -6,6 +7,7 @@ import { applyHostEnvironment } from "../environment";
 import { initLogging, logger } from "../log";
 import { installCrashLog } from "./crashLog";
 import { type CreateServerOptions, createServer, type RunningServer } from "./server";
+import { createSourceRestart, isSourceWatchMode } from "./sourceRestart";
 
 export interface BootHostOptions {
 	port: number;
@@ -73,6 +75,34 @@ export async function bootHost(options: BootHostOptions): Promise<BootedHost> {
 	const requested = options.port;
 	const port =
 		options.portMode === "free" ? await findFreePort(requested, options.host) : requested;
+	let restart: (() => Promise<void>) | undefined;
+	let hostUpdate = options.hostUpdate;
+	if (hostUpdate?.restartRequired) {
+		if (isSourceWatchMode()) {
+			log.warn(
+				"Source updates are disabled under --watch/--hot: use bun run dev without watch, or stop the host and run bun run update:source, then restart manually.",
+			);
+			hostUpdate = undefined;
+		} else {
+			const afterRun = hostUpdate.afterRun;
+			hostUpdate = {
+				...hostUpdate,
+				afterRun: async () => {
+					await afterRun?.();
+					if (!restart) throw new Error("Source restart lifecycle is not ready");
+					try {
+						await restart();
+					} catch (error) {
+						log.error("Source update restart failed; restart the host manually", error);
+						throw new CodedError(
+							"SOURCE_UPDATE_RESTART_FAILED",
+							"Source update restart failed. Restart the host manually.",
+						);
+					}
+				},
+			};
+		}
+	}
 	const running = await createServer({
 		port,
 		host: options.host,
@@ -80,9 +110,12 @@ export async function bootHost(options: BootHostOptions): Promise<BootedHost> {
 		...(options.projectPath ? { projectPath: options.projectPath } : {}),
 		...(options.appVersion ? { appVersion: options.appVersion } : {}),
 		...(options.analytics ? { analytics: options.analytics } : {}),
-		...(options.hostUpdate ? { hostUpdate: options.hostUpdate } : {}),
+		...(hostUpdate ? { hostUpdate } : {}),
 	});
 	const server = attachProcessSignals(running);
+	if (hostUpdate?.restartRequired) {
+		restart = createSourceRestart({ shutdown: () => server.shutdown(), port: server.port });
+	}
 	log.info(`listening on port ${server.port}`);
 	return { server, port: server.port, requested };
 }

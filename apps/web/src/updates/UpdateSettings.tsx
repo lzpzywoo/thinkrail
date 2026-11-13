@@ -89,6 +89,14 @@ function nativeStatusCopy(
 
 type Translate = ReturnType<typeof useT>;
 
+const SOURCE_FAILURE_KEYS = {
+	busy: "updates.source.failed.busy",
+	dirty: "updates.source.failed.dirty",
+	conflict: "updates.source.failed.conflict",
+	update: "updates.source.failed.update",
+	restart: "updates.source.failed.restart",
+} as const;
+
 function hostNoticeCopy(
 	t: Translate,
 	state: HostUpdateNotice,
@@ -97,7 +105,10 @@ function hostNoticeCopy(
 	if (requestFailed || state.status === "failed") {
 		return {
 			title: t("updates.host.failed.title"),
-			detail: t("updates.host.failed.detail"),
+			detail:
+				state.channel === "source"
+					? t(SOURCE_FAILURE_KEYS[state.failureReason ?? "update"])
+					: t("updates.host.failed.detail"),
 		};
 	}
 	switch (state.status) {
@@ -109,19 +120,31 @@ function hostNoticeCopy(
 		case "running":
 			return {
 				title: t("updates.host.running.title", { version: state.availableVersion }),
-				detail: t("updates.host.running.detail"),
+				detail: t(
+					state.channel === "source"
+						? "updates.source.running.detail"
+						: "updates.host.running.detail",
+				),
 			};
 		case "succeeded":
 			return {
 				title: t("updates.host.succeeded.title", { version: state.availableVersion }),
-				detail: t("updates.host.succeeded.detail"),
+				detail: t(
+					state.channel === "source"
+						? "updates.source.succeeded.detail"
+						: "updates.host.succeeded.detail",
+				),
 			};
 		default:
 			return {
 				title: t("updates.host.available.title", { version: state.availableVersion }),
 				detail:
 					state.status === "available"
-						? t("updates.host.available.detail")
+						? t(
+								state.channel === "source"
+									? "updates.source.available.detail"
+									: "updates.host.available.detail",
+							)
 						: t("updates.host.legacy.detail"),
 			};
 	}
@@ -208,7 +231,11 @@ export function UpdateSettings({ updates }: UpdateSettingsProps) {
 				<p className="text-text-muted tr-text-metadata">
 					{updates.source === "native"
 						? t("updates.settings.nativeDescription")
-						: t("updates.settings.hostDescription")}
+						: t(
+								hostNotice?.channel === "source"
+									? "updates.source.description"
+									: "updates.settings.hostDescription",
+							)}
 				</p>
 			</div>
 
@@ -407,7 +434,11 @@ export function UpdateSettings({ updates }: UpdateSettingsProps) {
 							data-testid={hostFailed ? "update-retry" : "update-run-host"}
 							onClick={updates.runUpdate}
 						>
-							{hostFailed ? t("common.retry") : t("updates.action.run")}
+							{channel === "source"
+								? t("updates.source.action")
+								: hostFailed
+									? t("common.retry")
+									: t("updates.action.run")}
 						</Button>
 					) : null}
 				</div>

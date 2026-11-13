@@ -29,6 +29,7 @@ import { type DelegationRunDetails as CoreRunDetails, delegationSessionDir } fro
 import { SUBAGENT_COMPLETION_MESSAGE } from "pi-subagents";
 import { setTrashImplementationForTests } from "../trash";
 import {
+	acquireHostUpdateLock,
 	createSession,
 	deleteSession,
 	disposeAllSessions,
@@ -1008,6 +1009,9 @@ test("owned children remain inspectable before and during their first provider r
 		expect(() => readChildTranscript(workspace, parent, id)).toThrow("No transcript found");
 	const { release } = gatedChildResponse();
 	const run = child.runQueued("Wait for the provider.");
+	expect(() => acquireHostUpdateLock()).toThrow(
+		expect.objectContaining({ code: "HOST_UPDATE_BUSY" }),
+	);
 	try {
 		await waitFor(() => child.snapshot?.status === "running");
 		expect(existsSync(child.record.sessionFile)).toBe(true);

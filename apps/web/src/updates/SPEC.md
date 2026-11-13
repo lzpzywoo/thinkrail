@@ -36,12 +36,28 @@ The optional host snapshot arrives through the versioned wire and is synchronize
 visible through a temporary disconnect and the next welcome replaces or clears it. Current hosts expose
 idle/available/running/succeeded/failed state, an optional **Check for Updates** action, and one **Run Update** action;
 the actions send parameterless version-gated requests (`host.checkUpdates` at v103, `host.update` at v70).
-Success still asks for a manual host restart. Older hosts retain fixed `thinkrail update` guidance.
+Binary-channel success still asks for a manual host restart. Older hosts retain fixed command guidance.
+Both host actions are unavailable after success.
 No command text or arbitrary diagnostics cross the wire.
 
 A present native bridge always wins over host state, including while its capability is resolving or disabled.
 With neither usable capability, the Updates settings section and affordance are absent. The topbar remains a path
 back to Settings throughout actionable native and host phases, not only after a package is ready.
+
+## Source host lifecycle
+
+For `channel: source`, automatic upstream detection only surfaces the existing Settings/topbar reminder.
+**Update & Restart** is the single explicit consent, including on retry; no extra modal or automatic update
+request is introduced. Available copy explains that merging upstream preserves fork commits. Running copy
+explains that new AI tasks are blocked and successful installation/build triggers automatic service restart
+and browser reconnection. Success presents restarting status, with neither check nor update available.
+
+The optional `failureReason` selects localized guidance: `busy` means no update started and retry after AI
+tasks finish; `dirty` requires the user to commit/stash their own changes; `conflict` means the merge was
+aborted, changes preserved, and manual reconciliation is needed while the old service remains running.
+`update` (also the fallback) covers fetch/install/build failure without restart; `restart` directs the user
+to host logs and manual restart after a successful build. Standalone `bun run update:source` guidance
+explicitly requires a manual restart, unlike the UI action. Native and binary journeys keep their own copy.
 
 ## Native install journey
 

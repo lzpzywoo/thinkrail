@@ -7,38 +7,31 @@ interface CliFlags {
 	checkOnly: boolean;
 	skipInstall: boolean;
 	skipBuild: boolean;
-	skipRestart: boolean;
-	force: boolean;
 	help: boolean;
 }
 
 const USAGE = `Usage: bun run update:source [options]
 
 Fetch the latest ThinkRail source code from the official GitHub repository,
-install dependencies, build the web UI, and restart the server.
+merge upstream while preserving local commits, install dependencies, and build the web UI.
+Restart the running server manually after a successful update.
 
 Options:
-  --check-only     Check if updates are available without pulling or building.
+  --check-only     Check if updates are available without merging or building.
   --skip-install   Skip 'bun install' dependency installation.
   --skip-build     Skip 'bun run build:web' UI build.
-  --skip-restart   Do not restart the server after update.
-  --force          Proceed with install and build even if already up to date.
   -h, --help       Show this help message.`;
 
 function parseFlags(argv: readonly string[]): CliFlags {
 	let checkOnly = false;
 	let skipInstall = false;
 	let skipBuild = false;
-	let skipRestart = false;
-	let force = false;
 	let help = false;
 
 	for (const arg of argv) {
 		if (arg === "--check-only") checkOnly = true;
 		else if (arg === "--skip-install") skipInstall = true;
 		else if (arg === "--skip-build") skipBuild = true;
-		else if (arg === "--skip-restart") skipRestart = true;
-		else if (arg === "--force") force = true;
 		else if (arg === "-h" || arg === "--help") help = true;
 		else {
 			console.error(`Unknown option: ${arg}\n`);
@@ -47,7 +40,7 @@ function parseFlags(argv: readonly string[]): CliFlags {
 		}
 	}
 
-	return { checkOnly, skipInstall, skipBuild, skipRestart, force, help };
+	return { checkOnly, skipInstall, skipBuild, help };
 }
 
 async function askRetry(): Promise<boolean> {
@@ -69,14 +62,14 @@ async function run(): Promise<void> {
 		return;
 	}
 
-	const repoRoot = findRepoRoot();
+	const repoRoot = await findRepoRoot();
 
 	if (flags.checkOnly) {
 		console.log(
 			"Checking for ThinkRail updates from official repository (https://github.com/JetBrains/thinkrail.git)...",
 		);
 		try {
-			const status = checkSourceUpdateAvailable({ repoRoot });
+			const status = await checkSourceUpdateAvailable({ repoRoot });
 			console.log(`\nLocal commit:    main@${status.currentShort} (${status.currentCommit})`);
 			console.log(`Upstream commit: main@${status.upstreamShort} (${status.upstreamCommit})`);
 			if (status.updateAvailable) {
@@ -96,13 +89,12 @@ async function run(): Promise<void> {
 
 	const shouldRun = true;
 	while (shouldRun) {
-		console.log("\n=== ThinkRail Source Auto-Update ===");
+		console.log("\n=== ThinkRail Source Update ===");
 		try {
 			await executeSourceUpdate({
 				repoRoot,
 				skipInstall: flags.skipInstall,
 				skipBuild: flags.skipBuild,
-				skipRestart: flags.skipRestart,
 				logger: (msg) => {
 					if (msg.trim().length > 0) process.stdout.write(`  ${msg.trim()}\n`);
 				},
@@ -111,7 +103,9 @@ async function run(): Promise<void> {
 				},
 			});
 
-			console.log("\n[✓] Source update completed successfully!");
+			console.log(
+				"\n[✓] Source update completed successfully! Restart the running server manually to use the update.",
+			);
 			return;
 		} catch (err) {
 			console.error("\n[✗] Update failed:", err instanceof Error ? err.message : String(err));

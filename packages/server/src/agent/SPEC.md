@@ -1108,7 +1108,7 @@ re-opened transcripts provider-valid.
     Both session paths pass it as `resourceLoader`. `buildResourceLoader` stays internal; the seam +
     its types are on the barrel.
 - **Public surface (barrel):** the manager operations (incl. `respondToTool` +
-  `settleSessionsForShutdown`) + `CreateSessionInput`/`CreateSessionResult` + `SessionEventPayload`;
+  `settleSessionsForShutdown`, `acquireHostUpdateLock(): () => void`) + `CreateSessionInput`/`CreateSessionResult` + `SessionEventPayload`;
   the runtime-generation facade (`usePiRuntime`, candidate prepare/activate, current generation id, and the
   closed `load-failed` outcome—no manager internals) plus `configurePiRuntime`/factory test seams and the
   pre-bootstrap `configurePiRuntimeGenerationInitializer` composition seam; `listModelContextSettings` /
@@ -1195,6 +1195,19 @@ re-opened transcripts provider-valid.
 - **Forbidden:** `host`; sibling features other than `log`, `trash` and those narrow persistence surfaces (session
   worktree `cwd` remains an input, never a workspace-registry lookup); Central process/filesystem knowledge—the
   caller supplies only the desired opaque extension paths for a candidate.
+
+## Host source update admission
+
+`acquireHostUpdateLock()` synchronously checks and closes host AI admission. It throws
+`CodedError("HOST_UPDATE_BUSY", …)` asking the user to retry later while session preparation or
+teardown, streaming/nonidle work, prompt reservations, compaction, reload, accepted nudges,
+live delegated children or background commands, review creation/runs, or one-shot inference remain.
+Preparation is reserved before its first await, including runtime resolution and disk attachment.
+While locked, new preparations and central work admission reject with `HOST_UPDATE_RUNNING`;
+completion delivery waits in its existing owners. The returned release is idempotent, reopens
+admission and flushes waiting completions. The caller holds it through update/restart or releases
+it on failure. This is host admission only: cancellation and shutdown keep their existing behavior,
+and no SDK state or runtime patch participates.
 
 ## Tool output and context recovery
 

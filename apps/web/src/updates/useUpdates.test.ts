@@ -3,6 +3,7 @@ import type { HostUpdateNotice, NativeUpdateBridge, NativeUpdateState } from "@t
 import {
 	getNativeUpdateBridge,
 	hasNativeUpdateSurface,
+	hostActionAvailability,
 	runHostUpdateCheck,
 	runHostUpdateRequest,
 	runNativeUpdateRequest,
@@ -167,5 +168,28 @@ describe("unified update capability", () => {
 	test("host authority exists exactly when no native bridge and a host snapshot is present", () => {
 		expect(selectUpdateSource(null, hostNotice())).toBe("host");
 		expect(selectUpdateSource(null, null)).toBeNull();
+	});
+
+	test("succeeded host updates disable both canRun and canCheck", () => {
+		expect(hostActionAvailability("available", true, true)).toEqual({
+			canRun: true,
+			canCheck: true,
+		});
+		expect(hostActionAvailability("failed", true, true)).toEqual({
+			canRun: true,
+			canCheck: true,
+		});
+		expect(hostActionAvailability("succeeded", true, true)).toEqual({
+			canRun: false,
+			canCheck: false,
+		});
+		expect(hostActionAvailability("running", true, true)).toEqual({
+			canRun: false,
+			canCheck: false,
+		});
+		expect(hostActionAvailability("idle", true, true)).toEqual({
+			canRun: false,
+			canCheck: true,
+		});
 	});
 });

@@ -598,8 +598,15 @@ channel fan-out, and the process-boot wrapper both launchers share.
   up-to-date source release reports `idle`. The v70 `host.update` request acknowledges after starting one detached,
   server-single-flighted run; running, succeeded, and failed are full replacements on `host.updateAvailable` for every client.
   The v103 (`HOST_UPDATE_CHECK_PROTOCOL_VERSION`) parameterless `host.checkUpdates` request checks and returns the latest notice.
-  Success latches until host restart and does not shut down or relaunch the unsupervised process; failure permits retry and exposes no
-  child output or arbitrary diagnostic. Discovery failures preserve known state, shutdown makes late results
+  Success latches until host restart. Packaged CLI updates require a manual restart; source updates carry a
+  launcher-owned restart callback, invoked after publishing success and gracefully shutting down the host.
+  Source checks run on startup and hourly without applying changes. Explicit update consent acquires the
+  agent maintenance lock; busy tasks reject the update, and new tasks are blocked until failure or restart.
+  Source merges preserve fork commits and abort on conflict; a dirty tree is never stashed or overwritten.
+  The application repository is resolved independently of the opened project. Standalone source updates
+  never relaunch their own script. Development watch mode cannot offer source updates because file changes
+  could restart the host before the build completes. Failure permits retry and exposes only an allow-listed
+  reason, never child output or arbitrary diagnostics. Discovery failures preserve known state, shutdown makes late results
   inert, and the host never learns feed, installer, command, path, channel, or version selection.
 - **Survey invitation delivery:** the three user-send handlers share one post-`ackSend` path that
   filters control traffic once, tracks anonymous `message_sent`, and records the local feedback count. The
@@ -631,10 +638,10 @@ enabled/confirmed choice before entering analytics attribution.
 - **Public surface (barrel):** `createServer`, `CreateServerOptions`, `RunningServer`, `bootHost`,
   `BootHostOptions`, `BootedHost`, `BuildKind`, `reportDesktopError`, `createSourceHostUpdate`,
   `executeSourceUpdate`, `checkSourceUpdateAvailable`, `checkWorkingTreeClean`, `ensureUpstreamRemote`,
-  `fetchUpstream`, `findRepoRoot`, `pullUpstream`, `scheduleProcessRestart`, `DEFAULT_CHECK_INTERVAL_MS`,
+  `fetchUpstream`, `findRepoRoot`, `pullUpstream`, `DEFAULT_CHECK_INTERVAL_MS`,
   `DEFAULT_UPSTREAM_BRANCH`, `DEFAULT_UPSTREAM_URL`, `defaultGitRunner`, `defaultProcessRunner`,
   `SourceHostUpdate`, `SourceUpdateCheckResult`, `SourceUpdateOptions`, `GitRunner`, `ProcessRunner`,
-  `ProcessRunResult`, `ProcessRestartOptions`.
+  `ProcessRunResult`, `createSourceRestart`, `isSourceWatchMode`, `SourceRestartLaunch`.
 - **Allowed deps:** `contracts` (`PROTOCOL_VERSION`, feature-introduction versions, `WS_CHANNELS`); `shared` (`freePort`, `shellEnv` — for
   `boot.ts`; `codedError`); `persistence` (`dataDir` — where `crashLog.ts` writes); `pi-todos/core` (reduced synchronous
   task snapshots, with group status still core-owned); the feature modules it composes (per the parent dependency graph, incl. `fs`'s

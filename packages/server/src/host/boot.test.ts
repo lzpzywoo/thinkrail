@@ -6,8 +6,10 @@ import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import type { HostUpdateNotice, ServerWelcome } from "@thinkrail/contracts";
 import { PROTOCOL_VERSION, WS_CHANNELS } from "@thinkrail/contracts";
+import { CodedError } from "@thinkrail/shared/codedError";
 import { isPortFree } from "@thinkrail/shared/freePort";
 import {
+	acquireHostUpdateLock,
 	configurePiRuntime,
 	configurePiRuntimeFactory,
 	refreshSubagentConcurrency,
@@ -23,6 +25,7 @@ import { logger } from "../log";
 import { resetConfigCache, updateConfig } from "../settings";
 import { type BootedHost, bootHost } from "./boot";
 import { handleRequest } from "./handlers";
+import { createServer } from "./server";
 
 const TEST_KEY = "phc_test";
 
@@ -771,6 +774,62 @@ test("host update runs are detached, single-flight, retryable, and success-latch
 	expect(runs.checks).toHaveLength(2);
 	firstClient.socket.close();
 	secondClient.socket.close();
+});
+
+test("source updates require consent, reject busy work, release on conflict, and restart only on success", async () => {
+	const runs = createCheckHarness<void>();
+	let restarts = 0;
+	const server = await createServer({
+		port: grabFreePort(),
+		host: "localhost",
+		hostUpdate: {
+			intervalMs: 60_000,
+			restartRequired: true,
+			check: async () => ({
+				currentVersion: "main@1111111",
+				availableVersion: "main@2222222",
+				channel: "source",
+				status: "available",
+			}),
+			run: runs.check,
+			afterRun: async () => { restarts += 1; },
+		},
+	});
+	booted.push({ server, port: server.port, requested: server.port });
+	const client = await collectSocket(server.port, "source-consent");
+	await client.waitForFrame((frame) => frame.channel === WS_CHANNELS.serverWelcome);
+	await socketBarrier(client, "ready");
+	expect(runs.checks).toHaveLength(0);
+	expect(restarts).toBe(0);
+	const release = acquireHostUpdateLock();
+	try {
+		client.socket.send(JSON.stringify({ id: "busy-update", method: "host.update", params: {} }));
+		await client.waitForFrame((frame) => frame.id === "busy-update");
+		await client.waitForFrame((frame) =>
+			frame.channel === WS_CHANNELS.hostUpdateAvailable &&
+			(frame.data as HostUpdateNotice).failureReason === "busy");
+		expect(runs.checks).toHaveLength(0);
+	} finally {
+		release();
+	}
+	client.socket.send(JSON.stringify({ id: "conflicting-update", method: "host.update", params: {} }));
+	const failedRun = await runs.waitForCheck(0);
+	expect(() => acquireHostUpdateLock()).toThrow();
+	failedRun.reject(new CodedError("SOURCE_UPDATE_CONFLICT", "private git output"));
+	await client.waitForFrame((frame) =>
+		frame.channel === WS_CHANNELS.hostUpdateAvailable &&
+		(frame.data as HostUpdateNotice).failureReason === "conflict");
+	expect(restarts).toBe(0);
+	expect(JSON.stringify(client.frames)).not.toContain("private git output");
+	acquireHostUpdateLock()();
+	client.socket.send(JSON.stringify({ id: "retry-source-update", method: "host.update", params: {} }));
+	const successRun = await runs.waitForCheck(1);
+	successRun.resolve(undefined);
+	await client.waitForFrame((frame) =>
+		frame.channel === WS_CHANNELS.hostUpdateAvailable &&
+		(frame.data as HostUpdateNotice).status === "succeeded");
+	expect(restarts).toBe(1);
+	client.socket.close();
 });
 
 test("shutdown makes a late host update run result inert", async () => {

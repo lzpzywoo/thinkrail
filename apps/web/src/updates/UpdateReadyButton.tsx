@@ -52,10 +52,17 @@ export function UpdateReadyButton({
 				? t("updates.button.updatingHostVersionLabel", { version: availableVersion })
 				: t("updates.button.updatingHostLabel");
 		} else if (hostStatus === "succeeded") {
-			label = t("updates.button.restartHost");
-			ariaLabel = availableVersion
-				? t("updates.button.restartHostVersionLabel", { version: availableVersion })
-				: t("updates.button.restartHostLabel");
+			label = t(
+				updates.state.channel === "source"
+					? "updates.source.restarting"
+					: "updates.button.restartHost",
+			);
+			ariaLabel =
+				updates.state.channel === "source"
+					? label
+					: availableVersion
+						? t("updates.button.restartHostVersionLabel", { version: availableVersion })
+						: t("updates.button.restartHostLabel");
 		} else {
 			label = t("updates.button.available");
 			ariaLabel = availableVersion

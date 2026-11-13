@@ -1,5 +1,6 @@
 import type { Api, Context, Model } from "@earendil-works/pi-ai";
 import { usePiRuntime } from "./agentSessionManager";
+import { withHostWork } from "./hostUpdateAdmission";
 import { preferredDefaultModel } from "./modelDefaults";
 import { type AvailableModelsRuntime, settledAvailableModels } from "./piRuntime";
 
@@ -58,25 +59,27 @@ export function pickModel(tier: ModelTier = "cheap"): Promise<Model<Api> | null>
 }
 
 export function completeOnce(req: OneShotRequest): Promise<OneShotResult> {
-	return usePiRuntime(async (runtime) => {
-		const model = pickModelFromRuntime(runtime, req.tier ?? "cheap");
-		if (!model) throw new Error("no-model");
+	return withHostWork(() =>
+		usePiRuntime(async (runtime) => {
+			const model = pickModelFromRuntime(runtime, req.tier ?? "cheap");
+			if (!model) throw new Error("no-model");
 
-		const context: Context = {
-			...(req.system ? { systemPrompt: req.system } : {}),
-			messages: [{ role: "user", content: req.prompt, timestamp: Date.now() }],
-		};
-		const message = await runtime.completeSimple(model, context, {
-			maxTokens: req.maxTokens ?? 256,
-			temperature: req.temperature ?? 0.2,
-			...(req.signal ? { signal: req.signal } : {}),
-		});
+			const context: Context = {
+				...(req.system ? { systemPrompt: req.system } : {}),
+				messages: [{ role: "user", content: req.prompt, timestamp: Date.now() }],
+			};
+			const message = await runtime.completeSimple(model, context, {
+				maxTokens: req.maxTokens ?? 256,
+				temperature: req.temperature ?? 0.2,
+				...(req.signal ? { signal: req.signal } : {}),
+			});
 
-		const text = message.content
-			.filter((content) => content.type === "text")
-			.map((content) => content.text)
-			.join("")
-			.trim();
-		return { text, model: { provider: String(model.provider), id: model.id } };
-	});
+			const text = message.content
+				.filter((content) => content.type === "text")
+				.map((content) => content.text)
+				.join("")
+				.trim();
+			return { text, model: { provider: String(model.provider), id: model.id } };
+		}),
+	);
 }

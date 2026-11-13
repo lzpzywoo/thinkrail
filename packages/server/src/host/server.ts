@@ -24,6 +24,7 @@ import {
 } from "@thinkrail/contracts";
 import { errorCodeOf } from "@thinkrail/shared/codedError";
 import {
+	acquireHostUpdateLock,
 	admissionContextFor,
 	bumpPackageSwitchGeneration,
 	cancelAllMcpProbes,
@@ -212,6 +213,8 @@ export interface CreateServerOptions {
 		intervalMs: number;
 		check(): Promise<HostUpdateNotice | null>;
 		run(): Promise<void>;
+		restartRequired?: boolean;
+		afterRun?(): Promise<void>;
 	};
 }
 
@@ -619,16 +622,46 @@ export async function createServer(options: CreateServerOptions = {}): Promise<R
 		if (hostUpdateNotice.status === "running" || hostUpdateNotice.status === "succeeded") {
 			return;
 		}
-		publishHostUpdate({ ...hostUpdateNotice, status: "running" });
-		void (async () => {
+		let releaseUpdateLock: (() => void) | undefined;
+		if (hostUpdate.restartRequired) {
 			try {
+				releaseUpdateLock = acquireHostUpdateLock();
+			} catch {
+				publishHostUpdate({ ...hostUpdateNotice, status: "failed", failureReason: "busy" });
+				return;
+			}
+		}
+		const { failureReason: _previousFailure, ...notice } = hostUpdateNotice;
+		publishHostUpdate({ ...notice, status: "running" });
+		void (async () => {
+			let restarting = false;
+			try {
+				await hostUpdateCheckingPromise;
 				await hostUpdate.run();
 				if (!hostUpdateActive || hostUpdateNotice?.status !== "running") return;
-				publishHostUpdate({ ...hostUpdateNotice, status: "succeeded" });
+				publishHostUpdate({ ...notice, status: "succeeded" });
+				restarting = true;
+				await hostUpdate.afterRun?.();
 				clearHostUpdateTimer();
-			} catch {
-				if (!hostUpdateActive || hostUpdateNotice?.status !== "running") return;
-				publishHostUpdate({ ...hostUpdateNotice, status: "failed" });
+			} catch (error) {
+				log.error("host update failed", error);
+				if (!hostUpdateActive) return;
+				const code = errorCodeOf(error);
+				const failureReason: HostUpdateNotice["failureReason"] =
+					restarting || code === "SOURCE_UPDATE_RESTART_FAILED"
+						? "restart"
+						: code === "SOURCE_UPDATE_DIRTY"
+							? "dirty"
+							: code === "SOURCE_UPDATE_CONFLICT"
+								? "conflict"
+								: "update";
+				publishHostUpdate({
+					...notice,
+					status: "failed",
+					...(hostUpdate.restartRequired ? { failureReason } : {}),
+				});
+			} finally {
+				releaseUpdateLock?.();
 			}
 		})();
 	};

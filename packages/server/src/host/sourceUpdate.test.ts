@@ -1,224 +1,217 @@
-import { describe, expect, test } from "bun:test";
-import type { SpawnSyncCaptured } from "@thinkrail/shared/spawn";
+import { afterEach, describe, expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import {
 	checkSourceUpdateAvailable,
 	checkWorkingTreeClean,
 	createSourceHostUpdate,
-	DEFAULT_CHECK_INTERVAL_MS,
-	DEFAULT_UPSTREAM_BRANCH,
-	DEFAULT_UPSTREAM_URL,
-	ensureUpstreamRemote,
+	defaultGitRunner,
 	executeSourceUpdate,
-	fetchUpstream,
 	findRepoRoot,
 	type GitRunner,
-	type ProcessRunner,
-	pullUpstream,
 } from "./sourceUpdate";
 
-function createMockGitRunner(responses: Record<string, Partial<SpawnSyncCaptured>>): {
-	runner: GitRunner;
-	calls: string[][];
-} {
-	const calls: string[][] = [];
-	const runner: GitRunner = (args, _cwd) => {
-		calls.push([...args]);
-		const key = args.join(" ");
-		const matched = responses[key] ?? {
-			launched: true,
-			exitCode: 0,
-			stdout: "",
-			stderr: "",
-		};
-		return {
-			launched: matched.launched ?? true,
-			exitCode: matched.exitCode ?? 0,
-			stdout: matched.stdout ?? "",
-			stderr: matched.stderr ?? "",
-		};
-	};
-	return { runner, calls };
+const fixtures: string[] = [];
+afterEach(() => {
+	for (const path of fixtures.splice(0)) rmSync(path, { recursive: true, force: true });
+});
+
+function git(cwd: string, ...args: string[]): string {
+	return execFileSync("git", args, {
+		cwd,
+		encoding: "utf8",
+		stdio: ["ignore", "pipe", "pipe"],
+	}).trim();
 }
 
-describe("sourceUpdate", () => {
-	test("findRepoRoot parses rev-parse output", () => {
-		const { runner } = createMockGitRunner({
-			"rev-parse --show-toplevel": { stdout: "D:\\work\\repo\n" },
-		});
-		expect(findRepoRoot("D:\\work", runner)).toBe("D:/work/repo");
+function commit(cwd: string, file: string, content: string): string {
+	writeFileSync(join(cwd, file), content);
+	git(cwd, "add", file);
+	git(cwd, "commit", "-m", file);
+	return git(cwd, "rev-parse", "HEAD");
+}
+
+function fixture(conflict = false) {
+	const root = mkdtempSync(join(tmpdir(), "thinkrail-source-update-"));
+	fixtures.push(root);
+	const upstream = join(root, "official");
+	const fork = join(root, "fork");
+	mkdirSync(upstream);
+	git(upstream, "init");
+	git(upstream, "symbolic-ref", "HEAD", "refs/heads/main");
+	for (const [name, value] of [
+		["user.name", "Source Update Test"],
+		["user.email", "source-update@example.invalid"],
+		["commit.gpgSign", "false"],
+		["core.autocrlf", "false"],
+	] as const) {
+		git(upstream, "config", name, value);
+	}
+	commit(upstream, "shared.txt", "base\n");
+	git(root, "-c", "core.autocrlf=false", "clone", upstream, fork);
+	for (const [name, value] of [
+		["user.name", "Source Update Test"],
+		["user.email", "source-update@example.invalid"],
+		["commit.gpgSign", "false"],
+		["core.autocrlf", "false"],
+	] as const) {
+		git(fork, "config", name, value);
+	}
+	const local = commit(fork, conflict ? "shared.txt" : "fork.txt", "fork feature\n");
+	const remote = commit(upstream, conflict ? "shared.txt" : "official.txt", "official feature\n");
+	return { fork, upstream, local, remote, options: { repoRoot: fork, upstreamUrl: upstream } };
+}
+
+describe("source update with disposable repositories", () => {
+	test("checking fetches without changing fork files or HEAD; updating preserves both histories", async () => {
+		const { fork, upstream, local, remote, options } = fixture();
+		const host = createSourceHostUpdate({ ...options, skipInstall: true, skipBuild: true });
+		expect(host.restartRequired).toBe(true);
+		expect((await host.check())?.status).toBe("available");
+		expect(git(fork, "rev-parse", "HEAD")).toBe(local);
+		expect(git(fork, "status", "--porcelain")).toBe("");
+		expect(existsSync(join(fork, "official.txt"))).toBe(false);
+		await host.run();
+		expect(git(fork, "rev-parse", "HEAD^1")).toBe(local);
+		expect(git(fork, "rev-parse", "HEAD^2")).toBe(remote);
+		expect(readFileSync(join(fork, "fork.txt"), "utf8")).toBe("fork feature\n");
+		expect(readFileSync(join(fork, "official.txt"), "utf8")).toBe("official feature\n");
+		expect(git(upstream, "rev-parse", "HEAD")).toBe(remote);
+		expect((await host.check())?.status).toBe("idle");
 	});
 
-	test("findRepoRoot throws when not inside a git repo", () => {
-		const { runner } = createMockGitRunner({
-			"rev-parse --show-toplevel": { exitCode: 128, stderr: "fatal: not a git repository" },
-		});
-		expect(() => findRepoRoot("D:\\work", runner)).toThrow("Not inside a git repository");
-	});
-
-	test("checkWorkingTreeClean passes when status is empty", () => {
-		const { runner } = createMockGitRunner({
-			"status --porcelain": { stdout: "" },
-		});
-		expect(() => checkWorkingTreeClean("/repo", runner)).not.toThrow();
-	});
-
-	test("checkWorkingTreeClean throws when dirty files exist", () => {
-		const { runner } = createMockGitRunner({
-			"status --porcelain": { stdout: " M packages/server/src/dev.ts\n" },
-		});
-		expect(() => checkWorkingTreeClean("/repo", runner)).toThrow(
-			"Working tree has uncommitted changes",
-		);
-	});
-
-	test("ensureUpstreamRemote adds upstream when missing", () => {
-		const { runner, calls } = createMockGitRunner({
-			"remote -v": { stdout: "origin https://github.com/fork/thinkrail.git (fetch)\n" },
-			[`remote add upstream ${DEFAULT_UPSTREAM_URL}`]: { exitCode: 0 },
-		});
-		ensureUpstreamRemote("/repo", DEFAULT_UPSTREAM_URL, runner);
-		expect(calls).toEqual([
-			["remote", "-v"],
-			["remote", "add", "upstream", DEFAULT_UPSTREAM_URL],
-		]);
-	});
-
-	test("ensureUpstreamRemote updates upstream url when different", () => {
-		const { runner, calls } = createMockGitRunner({
-			"remote -v": { stdout: "upstream https://github.com/old/thinkrail.git (fetch)\n" },
-			[`remote set-url upstream ${DEFAULT_UPSTREAM_URL}`]: { exitCode: 0 },
-		});
-		ensureUpstreamRemote("/repo", DEFAULT_UPSTREAM_URL, runner);
-		expect(calls).toEqual([
-			["remote", "-v"],
-			["remote", "set-url", "upstream", DEFAULT_UPSTREAM_URL],
-		]);
-	});
-
-	test("fetchUpstream executes git fetch upstream <branch>", () => {
-		const { runner, calls } = createMockGitRunner({
-			[`fetch upstream ${DEFAULT_UPSTREAM_BRANCH}`]: { exitCode: 0 },
-		});
-		fetchUpstream("/repo", DEFAULT_UPSTREAM_BRANCH, runner);
-		expect(calls).toEqual([["fetch", "upstream", DEFAULT_UPSTREAM_BRANCH]]);
-	});
-
-	test("checkSourceUpdateAvailable detects newer commit", () => {
-		const { runner } = createMockGitRunner({
-			"remote -v": { stdout: `upstream ${DEFAULT_UPSTREAM_URL} (fetch)\n` },
-			"fetch upstream main": { exitCode: 0 },
-			"rev-parse HEAD": { stdout: "344aafcb0b56902e5fc87834059a353d54ca8892\n" },
-			"rev-parse upstream/main": { stdout: "1aba63011e81a5a05d705aacd6965f17a34dd576\n" },
-			"rev-list --count HEAD..upstream/main": { stdout: "20\n" },
-		});
-		const result = checkSourceUpdateAvailable({
-			repoRoot: "/repo",
-			gitRunner: runner,
-		});
-		expect(result.updateAvailable).toBe(true);
-		expect(result.currentShort).toBe("344aafc");
-		expect(result.upstreamShort).toBe("1aba630");
-		expect(result.channel).toBe("source");
-	});
-
-	test("checkSourceUpdateAvailable detects up-to-date commit", () => {
-		const { runner } = createMockGitRunner({
-			"remote -v": { stdout: `upstream ${DEFAULT_UPSTREAM_URL} (fetch)\n` },
-			"fetch upstream main": { exitCode: 0 },
-			"rev-parse HEAD": { stdout: "1aba63011e81a5a05d705aacd6965f17a34dd576\n" },
-			"rev-parse upstream/main": { stdout: "1aba63011e81a5a05d705aacd6965f17a34dd576\n" },
-		});
-		const result = checkSourceUpdateAvailable({
-			repoRoot: "/repo",
-			gitRunner: runner,
-		});
-		expect(result.updateAvailable).toBe(false);
-	});
-
-	test("pullUpstream performs fast-forward merge", () => {
-		const { runner, calls } = createMockGitRunner({
-			"pull --ff-only upstream main": { exitCode: 0 },
-		});
-		pullUpstream("/repo", "main", runner);
-		expect(calls).toEqual([["pull", "--ff-only", "upstream", "main"]]);
-	});
-
-	test("executeSourceUpdate runs through full update lifecycle", async () => {
-		const { runner } = createMockGitRunner({
-			"status --porcelain": { stdout: "" },
-			"remote -v": { stdout: `upstream ${DEFAULT_UPSTREAM_URL} (fetch)\n` },
-			"fetch upstream main": { exitCode: 0 },
-			"rev-parse HEAD": { stdout: "344aafcb0b56902e5fc87834059a353d54ca8892\n" },
-			"rev-parse upstream/main": { stdout: "1aba63011e81a5a05d705aacd6965f17a34dd576\n" },
-			"rev-list --count HEAD..upstream/main": { stdout: "5\n" },
-			"pull --ff-only upstream main": { exitCode: 0 },
-		});
-
-		const procCalls: string[][] = [];
-		const mockProcRunner: ProcessRunner = async (argv) => {
-			procCalls.push([...argv]);
-			return { exitCode: 0, stdout: "ok", stderr: "" };
+	test("merge uses the fetched oid even if the remote tracking ref changes during the run", async () => {
+		const { fork, local, remote, options } = fixture();
+		const calls: string[][] = [];
+		const runner: GitRunner = async (args, cwd) => {
+			calls.push([...args]);
+			if (args[0] === "merge") git(fork, "update-ref", "refs/remotes/upstream/main", local);
+			return defaultGitRunner(args, cwd);
 		};
-
-		const steps: string[] = [];
-		const result = await executeSourceUpdate({
-			repoRoot: "/repo",
+		await executeSourceUpdate({
+			...options,
 			gitRunner: runner,
-			processRunner: mockProcRunner,
-			onProgress: (s) => steps.push(s),
-			skipRestart: true,
+			skipInstall: true,
+			skipBuild: true,
 		});
+		expect(calls.filter((args) => args[0] === "fetch")).toHaveLength(1);
+		expect(calls.find((args) => args[0] === "merge")).toEqual([
+			"merge",
+			"--no-edit",
+			"--no-ff",
+			remote,
+		]);
+		expect(git(fork, "rev-parse", "HEAD^2")).toBe(remote);
+	});
 
-		expect(result.updateAvailable).toBe(true);
-		expect(procCalls).toEqual([
+	test("conflict aborts the merge and restores the clean original fork without running build steps", async () => {
+		const { fork, local, options } = fixture(true);
+		const calls: string[][] = [];
+		await expect(
+			executeSourceUpdate({
+				...options,
+				processRunner: async (argv) => {
+					calls.push([...argv]);
+					return { exitCode: 0, stdout: "", stderr: "" };
+				},
+			}),
+		).rejects.toMatchObject({ code: "SOURCE_UPDATE_CONFLICT" });
+		expect(git(fork, "rev-parse", "HEAD")).toBe(local);
+		expect(git(fork, "status", "--porcelain")).toBe("");
+		expect(readFileSync(join(fork, "shared.txt"), "utf8")).toBe("fork feature\n");
+		expect(existsSync(join(fork, ".git", "MERGE_HEAD"))).toBe(false);
+		expect(calls).toEqual([]);
+	});
+
+	test("dirty worktree blocks before fetch or merge", async () => {
+		const { fork, local, options } = fixture();
+		writeFileSync(join(fork, "untracked.txt"), "keep me");
+		await expect(executeSourceUpdate(options)).rejects.toMatchObject({
+			code: "SOURCE_UPDATE_DIRTY",
+		});
+		expect(git(fork, "rev-parse", "HEAD")).toBe(local);
+		expect(git(fork, "remote")).toBe("origin");
+		expect(readFileSync(join(fork, "untracked.txt"), "utf8")).toBe("keep me");
+	});
+
+	test.each([
+		"MERGE_HEAD",
+		"rebase-merge",
+		"rebase-apply",
+	])("existing %s blocks even with a clean status", async (state) => {
+		const { fork, local } = fixture();
+		const path = join(fork, ".git", state);
+		if (state === "MERGE_HEAD") writeFileSync(path, `${local}\n`);
+		else mkdirSync(path);
+		expect(git(fork, "status", "--porcelain")).toBe("");
+		await expect(checkWorkingTreeClean(fork)).rejects.toMatchObject({
+			code: "SOURCE_UPDATE_DIRTY",
+		});
+		expect(existsSync(path)).toBe(true);
+	});
+
+	test("a mismatched upstream is reported without rewriting it", async () => {
+		const { fork, upstream, options } = fixture();
+		git(fork, "remote", "add", "upstream", upstream);
+		const host = createSourceHostUpdate({
+			...options,
+			upstreamUrl: "https://example.invalid/other.git",
+		});
+		await expect(host.check()).rejects.toMatchObject({ code: "SOURCE_UPDATE_FAILED" });
+		expect(git(fork, "remote", "get-url", "upstream")).toBe(upstream);
+	});
+
+	test("build failure rejects with a classified error and never starts a restart process", async () => {
+		const { options } = fixture();
+		const calls: string[][] = [];
+		const steps: string[] = [];
+		const host = createSourceHostUpdate({
+			...options,
+			onProgress: (step) => steps.push(step),
+			processRunner: async (argv) => {
+				calls.push([...argv]);
+				return {
+					exitCode: argv.includes("build:web") ? 1 : 0,
+					stdout: "",
+					stderr: "private raw diagnostic",
+				};
+			},
+		});
+		await expect(host.run()).rejects.toMatchObject({
+			code: "SOURCE_UPDATE_FAILED",
+			message: "Building web UI failed. The running service has not been restarted.",
+		});
+		expect(calls).toEqual([
 			["bun", "install"],
 			["bun", "run", "build:web"],
 		]);
-		expect(steps).toContain("Checking working tree status...");
-		expect(steps).toContain("Pulling latest changes (fast-forward)...");
-		expect(steps).toContain("Installing dependencies (bun install)...");
-		expect(steps).toContain("Building web UI (bun run build:web)...");
-		expect(steps).toContain("Update completed successfully.");
+		expect(steps).not.toContain("Update completed successfully.");
+		expect(steps.some((step) => /restart/i.test(step))).toBe(false);
 	});
 
-	test("createSourceHostUpdate check() returns notice when update available and idle when up to date", async () => {
-		const { runner } = createMockGitRunner({
-			"remote -v": { stdout: `upstream ${DEFAULT_UPSTREAM_URL} (fetch)\n` },
-			"fetch upstream main": { exitCode: 0 },
-			"rev-parse HEAD": { stdout: "344aafcb0b56902e5fc87834059a353d54ca8892\n" },
-			"rev-parse upstream/main": { stdout: "1aba63011e81a5a05d705aacd6965f17a34dd576\n" },
-			"rev-list --count HEAD..upstream/main": { stdout: "1\n" },
-		});
-		const hostUpdate = createSourceHostUpdate({
-			repoRoot: "/repo",
-			gitRunner: runner,
-		});
-		expect(hostUpdate.intervalMs).toBe(DEFAULT_CHECK_INTERVAL_MS);
-		const notice = await hostUpdate.check();
-		expect(notice).toEqual({
-			currentVersion: "main@344aafc",
-			availableVersion: "main@1aba630",
-			channel: "source",
-			status: "available",
-		});
+	test("default discovery starts at application source rather than the opened project", async () => {
+		let startingDirectory = "";
+		const runner: GitRunner = async (_args, cwd) => {
+			startingDirectory = cwd;
+			return { launched: true, exitCode: 0, stdout: "D:\\app\n", stderr: "" };
+		};
+		expect(await findRepoRoot(undefined, runner)).toBe("D:/app");
+		expect(resolve(startingDirectory)).toBe(resolve(import.meta.dir));
+	});
 
-		const { runner: runnerUpToDate } = createMockGitRunner({
-			"remote -v": { stdout: `upstream ${DEFAULT_UPSTREAM_URL} (fetch)\n` },
-			"fetch upstream main": { exitCode: 0 },
-			"rev-parse HEAD": { stdout: "344aafcb0b56902e5fc87834059a353d54ca8892\n" },
-			"rev-parse upstream/main": { stdout: "344aafcb0b56902e5fc87834059a353d54ca8892\n" },
-			"rev-list --count HEAD..upstream/main": { stdout: "0\n" },
-		});
-		const hostUpdateUpToDate = createSourceHostUpdate({
-			repoRoot: "/repo",
-			gitRunner: runnerUpToDate,
-		});
-		const upToDateNotice = await hostUpdateUpToDate.check();
-		expect(upToDateNotice).toEqual({
-			currentVersion: "main@344aafc",
-			availableVersion: "main@344aafc",
-			channel: "source",
-			status: "idle",
+	test("fetch failures are classified without leaking subprocess diagnostics", async () => {
+		const { options } = fixture();
+		const runner: GitRunner = (args, cwd) =>
+			args[0] === "fetch"
+				? Promise.resolve({ launched: true, exitCode: 1, stdout: "", stderr: "secret" })
+				: defaultGitRunner(args, cwd);
+		await expect(
+			checkSourceUpdateAvailable({ ...options, gitRunner: runner }),
+		).rejects.toMatchObject({
+			code: "SOURCE_UPDATE_FAILED",
+			message: "Source update Git operation failed (fetch).",
 		});
 	});
 });

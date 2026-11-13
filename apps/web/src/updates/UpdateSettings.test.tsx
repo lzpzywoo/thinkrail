@@ -388,3 +388,68 @@ test("a failed last install explains its cause in Settings and keeps the topbar 
 	);
 	expect(installed).toBe("");
 });
+
+test("source consent explains merge and automatic restart with one explicit action", () => {
+	const updates = hostUpdates({ ...hostNotice("available"), channel: "source" }, true);
+	const markup = render(updates);
+	expect(markup).toContain("preserving your fork commits");
+	expect(markup).toContain("service restarts automatically");
+	expect(markup).toContain("Updates apply only when you choose Update &amp; Restart");
+	expect(markup.match(/data-testid="update-run-host"/g)).toHaveLength(1);
+	expect(markup).toContain(">Update &amp; Restart</button>");
+	expect(markup).not.toContain("Run Update");
+	expect(markup).not.toContain('role="dialog"');
+	expect(renderAffordance(updates)).toContain("Update available");
+});
+
+test("source running and success explain blocked tasks and automatic restart", () => {
+	const running = render(hostUpdates({ ...hostNotice("running"), channel: "source" }));
+	expect(running).toContain("New AI tasks are blocked");
+	expect(running).toContain("After installation and build succeed");
+	expect(running).not.toContain('data-testid="update-run-host"');
+	const updates = hostUpdates({ ...hostNotice("succeeded"), channel: "source" });
+	const succeeded = render(updates);
+	expect(succeeded).toContain("service is restarting automatically");
+	expect(succeeded).not.toContain("Restart the host manually");
+	expect(succeeded).not.toContain('data-testid="update-check-host"');
+	expect(renderAffordance(updates)).toContain("Restarting host");
+});
+
+test("source failures give reason-specific recovery and explicit retry consent", () => {
+	const cases: Array<[HostUpdateNotice["failureReason"], string]> = [
+		["busy", "The update has not started"],
+		["dirty", "Commit or stash them yourself"],
+		["conflict", "The merge was aborted because of conflicts"],
+		["update", "The service has not restarted"],
+		["restart", "automatic restart failed"],
+		[undefined as HostUpdateNotice["failureReason"], "The service has not restarted"],
+	];
+	for (const [failureReason, guidance] of cases) {
+		const notice: HostUpdateNotice = { ...hostNotice("failed"), channel: "source" };
+		if (failureReason) notice.failureReason = failureReason;
+		const updates = hostUpdates(notice, true);
+		const markup = render(updates);
+		expect(markup).toContain(guidance);
+		expect(markup).toContain('data-testid="update-retry"');
+		expect(markup).toContain(">Update &amp; Restart</button>");
+		expect(markup).toContain("standalone command requires you to restart the service manually");
+		expect(renderAffordance(updates)).toContain("Update failed");
+	}
+});
+
+test("source succeeded disables both actions and omits check/run buttons", () => {
+	const updates = hostUpdates(
+		{ ...hostNotice("succeeded"), channel: "source" },
+		false,
+		false,
+		false,
+	);
+	expect(updates.source).toBe("host");
+	if (updates.source !== "host") return;
+	expect(updates.canRun).toBe(false);
+	expect(updates.canCheck).toBe(false);
+	const markup = render(updates);
+	expect(markup).not.toContain('data-testid="update-run-host"');
+	expect(markup).not.toContain('data-testid="update-check-host"');
+	expect(markup).not.toContain('data-testid="update-retry"');
+});

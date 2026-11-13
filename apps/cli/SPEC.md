@@ -55,8 +55,7 @@ deliberately **not** parsed here — the host's analytics module is its single r
 ## Update advisory
 
 A compiled `stable`/`nightly` binary in the supported `<prefix>/bin/thinkrail[.exe]` layout supplies `bootHost`
-with one optional periodic update-notice producer; source and `dev` identities and manually placed binaries do
-not expose the capability. After the host is ready it performs a bounded lookup
+with one optional periodic binary update-notice producer; manually placed binaries do not expose that capability. After the host is ready it performs a bounded lookup
 immediately and every six hours on the baked channel with the same GitHub rules as the installers: stable reads
 `releases/latest`, while nightly selects the first `vX.Y.Z-nightly.N` tag from `releases?per_page=20`. Only a
 strictly newer version produces `{ currentVersion, availableVersion, channel }` state; discovery failure and
@@ -68,7 +67,27 @@ guidance for older clients/hosts or a failed run. The action invokes this same i
 update subcommand asynchronously; the browser cannot select a command, path, channel, version, or URL. Bounded
 running/succeeded/failed state converges every client, and success requires the user to restart the unsupervised
 host manually rather than aborting active work. Discovery and execution remain absent from
-`update`/`uninstall`/help/version exits and all source/dev launches.
+`update`/`uninstall`/help/version exits. Source launches use the separate source lifecycle below.
+
+## Source updates and restart
+
+Source CLI and server dev launches supply the source updater to `bootHost`. Discovery targets the
+application's source checkout independently of the project directory. Explicit update confirmation runs
+Git merge, dependency installation, and web build under the host's agent maintenance lock. Only after
+successful build and publication of succeeded state does `bootHost` await `server.shutdown()` and relaunch
+the same Bun executable, runtime flags, entrypoint, project arguments, working directory, and environment.
+A shutdown failure prevents relaunch; launch failures remain visible in host logs and inherited stderr.
+The internal `THINKRAIL_RESTART_PORT` carries the actual bound port: source CLI/dev relaunches bind it
+exactly, overriding the original requested port, and the CLI does not open another browser. Compiled
+binary and desktop update lifecycles are unchanged.
+
+The server's default `dev` command uses an explicit process supervisor with inherited terminal streams.
+The child requests restart over IPC only after shutdown; the supervisor waits for its successful exit
+before relaunching on the bound port. It does not reload on file changes. Package `dev:watch` restores Bun
+file watching for local iteration, but source update discovery and execution stay disabled under watch.
+Direct `--watch`/`--hot` launches also disable that updater and log guidance to use ordinary `dev`, or stop
+the host and run `bun run update:source` before restarting manually. The standalone source update script
+only updates and builds; it never relaunches itself or a host.
 
 ## Self-update (`thinkrail update`)
 

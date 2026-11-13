@@ -30,6 +30,7 @@ import {
 import { setTrashImplementationForTests } from "../trash";
 import {
 	abortSession,
+	acquireHostUpdateLock,
 	compactSession,
 	createSession,
 	deleteSession,
@@ -162,6 +163,9 @@ test("tool and UI share one command owner across parent abort and resource reloa
 	await reloadSessionResources(p.sessionId);
 	const before: SessionResources = await getSessionResources(p.workspaceId, p.sessionId, p.cwd);
 	expect(before.commands).toMatchObject([{ id, sessionId: p.sessionId, status: "running" }]);
+	expect(() => acquireHostUpdateLock()).toThrow(
+		expect.objectContaining({ code: "HOST_UPDATE_BUSY" }),
+	);
 	await stopBackgroundCommand(p.workspaceId, p.sessionId, id, p.cwd);
 	await waitFor(
 		async () =>

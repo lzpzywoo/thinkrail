@@ -57,15 +57,23 @@ async function bootstrap(build: BuildKind): Promise<void> {
 		console.warn(`Web app not found at ${staticDir} — run \`bun run build:web\` to build the UI.`);
 	}
 
+	const restartPort = build === "source" ? process.env.THINKRAIL_RESTART_PORT : undefined;
+	if (
+		restartPort !== undefined &&
+		(!/^\d+$/.test(restartPort) || Number(restartPort) < 1 || Number(restartPort) > 65535)
+	) {
+		throw new Error("Invalid THINKRAIL_RESTART_PORT");
+	}
+	const shouldOpen = options.open && restartPort === undefined;
 	const hostUpdate =
 		createCliHostUpdate(build, channel, version, {
 			platform: process.platform,
 			execPath: process.execPath,
 		}) ?? (build === "source" ? createSourceHostUpdate() : undefined);
 	const { server, port, requested } = await bootHost({
-		port: options.port,
+		port: restartPort === undefined ? options.port : Number(restartPort),
 		host: options.host,
-		portMode: "free",
+		portMode: restartPort === undefined ? "free" : "exact",
 		resolveShellEnv: true,
 		staticDir,
 		appVersion: version,
@@ -76,7 +84,7 @@ async function bootstrap(build: BuildKind): Promise<void> {
 			build,
 			...(build === "binary" ? { remapBase: BINARY_SOURCE_MAP_BASE } : {}),
 			mute: options.noAnalytics,
-			...(options.open ? { openExternal: openBrowser } : {}),
+			...(shouldOpen ? { openExternal: openBrowser } : {}),
 		},
 		...(hostUpdate ? { hostUpdate } : {}),
 		...(options.projectDir ? { projectPath: resolve(process.cwd(), options.projectDir) } : {}),
@@ -89,7 +97,7 @@ async function bootstrap(build: BuildKind): Promise<void> {
 	const url = `http://${openHost}:${port}`;
 	printStartupMark({ status: "host ready", endpoint: url });
 	console.log(`thinkrail → ${url}`);
-	openUiThenStartAttribution(options.open, url, openBrowser, server.startAttributionClaim);
+	openUiThenStartAttribution(shouldOpen, url, openBrowser, server.startAttributionClaim);
 }
 
 export async function launch(build: BuildKind): Promise<void> {
