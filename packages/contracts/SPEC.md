@@ -45,7 +45,11 @@ the palette ranks with — kept here so host-side search can rank with the same 
   instead of pattern-matching an error message. A failure earns a code only when a client behaves differently
   for it or Error Tracking must tell it apart (it never sees `message`): **`REQUEST_REPLAY_OVERFLOW`** is the
   latter — the host's replay namespace for this page is full ([[submodule-server-host]]), and the page treats
-  it as an ordinary retryable failure. Everything else stays a plain `error` string. Expected method-specific outcomes remain typed method
+  it as an ordinary retryable failure. Source-update admission and Git/build/restart failures add
+  `HOST_UPDATE_BUSY`, `HOST_UPDATE_RUNNING`, `SOURCE_UPDATE_DIRTY`, `SOURCE_UPDATE_CONFLICT`,
+  `SOURCE_UPDATE_FAILED`, and `SOURCE_UPDATE_RESTART_FAILED` so the host can map them to
+  `HostUpdateNotice.failureReason` without sending raw process output. Everything else stays a plain
+  `error` string. Expected method-specific outcomes remain typed method
   results rather than generic WS failures; no current-layout protocol exists.
 - **Public surface (`index.ts`):** `export type *` of `piProtocol` + `domain` + `nativeClient`
   (`NativeUpdateState` / `NativeUpdateBridge`, `NativeWindowState` / `NativeWindowControlsBridge`,
