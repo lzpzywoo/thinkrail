@@ -2,7 +2,7 @@ import { MuseHubClient } from "./hub-client";
 import { ThinkRailObserver } from "./observer";
 import { ToolRouter } from "./router";
 import { SessionManager } from "./session-manager";
-import { ThinkRailSessionReader } from "./thinkrail-reader";
+import { DEFAULT_THINKRAIL_WS_URL, ThinkRailSessionReader } from "./thinkrail-reader";
 import { buildPipelineSteps, SESSION_MANAGER_TOOLS } from "./tools";
 import type { SessionManagerConfig } from "./types";
 
@@ -90,7 +90,7 @@ if (import.meta.main) {
 		hubHttpUrl: hubUrl,
 		hubWsUrl: hubWsUrl,
 		secret,
-		thinkrailWsUrl: process.env.THINKRAIL_WS_URL || "ws://127.0.0.1:24242/ws",
+		thinkrailWsUrl: process.env.THINKRAIL_WS_URL || DEFAULT_THINKRAIL_WS_URL,
 	})
 		.then(async ({ hubClient, sessionManager, observer }) => {
 			observer.start();

@@ -10,11 +10,11 @@
 bun run examples/muse-session-manager/index.ts
 ```
 
-如 ThinkRail 使用自定义端口，请在启动前设置 `THINKRAIL_WS_URL`。默认地址为 `ws://127.0.0.1:24242/ws`；ThinkRail 可能因端口占用选择其他端口，请使用实际启动地址。
+如 ThinkRail 使用自定义端口，请在启动前设置 `THINKRAIL_WS_URL`。默认地址为 `ws://localhost:24242/ws`；ThinkRail 可能因端口占用选择其他端口，请使用实际启动地址。
 
 | 环境变量 | 默认值 | 用途 |
 | --- | --- | --- |
-| `THINKRAIL_WS_URL` | `ws://127.0.0.1:24242/ws` | 真实 ThinkRail 主机 |
+| `THINKRAIL_WS_URL` | `ws://localhost:24242/ws` | 真实 ThinkRail 主机 |
 | `MUSE_HUB_URL` | `http://127.0.0.1:19840` | Muse 注册/心跳服务 |
 | `MUSE_HUB_WS_URL` | `ws://127.0.0.1:19840/ws` | Muse 任务事件通道 |
 | `MUSE_HUB_SECRET` | `muse-session-secret-2026` | 注册身份密钥；建议设置为自己生成且持久保留的值 |
@@ -22,6 +22,17 @@ bun run examples/muse-session-manager/index.ts
 App ID 为 `thinkrail.session-manager`，名称和描述包含 ThinkRail，注册关键词包括 `thinkrail`、`session`、`会话`、`任务`、`工作区`、`pi`。此前的 `com.muse.session-manager` 是另一个注册身份，升级前请停止旧服务；此服务不会注销其他身份。相同 appId 必须继续使用首次注册时的密钥。
 
 Muse 不可用时会按固定间隔重试注册。ThinkRail 不可用、协议版本不匹配或查询超时时，查询报告失败；不会将连接失败包装为空会话列表。
+
+## 连接故障排查
+
+ThinkRail默认绑定`localhost`。Windows上它可能只监听IPv6 `[::1]:24242`，此时`127.0.0.1`无法连接。若之前设置过IPv4地址，请在PowerShell中改为：
+
+```powershell
+$env:THINKRAIL_WS_URL = 'ws://localhost:24242/ws'
+bun run examples/muse-session-manager/index.ts
+```
+
+若ThinkRail使用其他端口或显式的`--host`，请使用其实际地址。连接错误会显示目标地址；Muse连接成功不表示ThinkRail连接也已成功。
 
 ## 在 Muse 中查询
 

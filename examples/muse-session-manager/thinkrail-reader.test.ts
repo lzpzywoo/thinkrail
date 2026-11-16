@@ -8,7 +8,11 @@ import { MuseHubClient } from "./hub-client";
 import { ThinkRailObserver } from "./observer";
 import { ToolRouter } from "./router";
 import { SessionManager } from "./session-manager";
-import { type RealSession, ThinkRailSessionReader } from "./thinkrail-reader";
+import {
+	DEFAULT_THINKRAIL_WS_URL,
+	type RealSession,
+	ThinkRailSessionReader,
+} from "./thinkrail-reader";
 import { SESSION_MANAGER_TOOLS } from "./tools";
 
 const servers: ReturnType<typeof Bun.serve>[] = [];
@@ -41,13 +45,13 @@ function record(
 function fixture(
 	records: SessionStateRecord[],
 	plan: TodoPlan = { todos: [], groups: [] },
-	options: { protocol?: number; failTodo?: boolean; ignoreState?: boolean } = {},
+	options: { protocol?: number; failTodo?: boolean; ignoreState?: boolean; hostname?: string } = {},
 ) {
 	const methods: string[] = [];
 	const acknowledgements: string[] = [];
 	const server = Bun.serve({
 		port: 0,
-		hostname: "127.0.0.1",
+		hostname: options.hostname ?? "127.0.0.1",
 		fetch(request, server) {
 			if (server.upgrade(request)) return;
 			return new Response("not found", { status: 404 });
@@ -88,7 +92,11 @@ function fixture(
 		},
 	});
 	servers.push(server);
-	return { url: `ws://127.0.0.1:${server.port}/ws`, methods, acknowledgements };
+	return {
+		url: `ws://${options.hostname ?? "127.0.0.1"}:${server.port}/ws`,
+		methods,
+		acknowledgements,
+	};
 }
 
 const plan: TodoPlan = {
@@ -114,6 +122,18 @@ const plan: TodoPlan = {
 };
 
 describe("real ThinkRail session reader", () => {
+	it("matches the host localhost binding and reads a localhost fixture", async () => {
+		expect(DEFAULT_THINKRAIL_WS_URL).toBe("ws://localhost:24242/ws");
+		const service = fixture([record("localhost")], undefined, { hostname: "localhost" });
+		const result = await new ThinkRailSessionReader(service.url).list();
+		expect(result.sessions[0]?.sessionId).toBe("localhost");
+	});
+
+	it("includes the target endpoint in connection failures", async () => {
+		const service = fixture([]);
+		servers.pop()?.stop(true);
+		await expect(new ThinkRailSessionReader(service.url).list()).rejects.toThrow(service.url);
+	});
 	it("reads authoritative live and background states plus real TODO progress", async () => {
 		const service = fixture(
 			[

@@ -8,6 +8,8 @@ import {
 	type WsResult,
 } from "../../packages/contracts/src/index";
 
+export const DEFAULT_THINKRAIL_WS_URL = "ws://localhost:24242/ws";
+
 export type RealSessionStatus =
 	| "running"
 	| "needs_input"
@@ -65,19 +67,28 @@ class ThinkRailConnection {
 		const url = new URL(endpoint);
 		url.searchParams.set("client", `muse-${randomUUID()}`);
 		url.searchParams.set("protocol", String(PROTOCOL_VERSION));
+		const endpointLabel = `${url.protocol}//${url.host}${url.pathname}`;
 		this.socket = new WebSocket(url);
 		this.ready = new Promise((resolve, reject) => {
 			const timer = setTimeout(() => {
-				reject(new Error("ThinkRail连接超时，请检查THINKRAIL_WS_URL和运行中的ThinkRail服务"));
+				reject(
+					new Error(
+						`ThinkRail连接超时 (${endpointLabel})，请检查THINKRAIL_WS_URL和运行中的ThinkRail服务`,
+					),
+				);
 				this.close();
 			}, timeoutMs);
-			const fail = () => {
+			const fail = (detail: string) => {
 				clearTimeout(timer);
-				reject(new Error("ThinkRail连接中断，请检查THINKRAIL_WS_URL和ThinkRail服务"));
+				reject(
+					new Error(
+						`ThinkRail连接中断 (${endpointLabel}，${detail})，请将THINKRAIL_WS_URL设为ThinkRail实际监听地址；默认主机使用localhost`,
+					),
+				);
 				this.rejectPending();
 			};
-			this.socket.onerror = fail;
-			this.socket.onclose = fail;
+			this.socket.onerror = () => fail("网络或握手错误");
+			this.socket.onclose = (event) => fail(`关闭码${event.code}`);
 			this.socket.onmessage = (event) => {
 				try {
 					const message = JSON.parse(String(event.data));
@@ -157,7 +168,7 @@ export function realStatus(state: SessionStateRecord["state"]): RealSessionStatu
 
 export class ThinkRailSessionReader implements RealSessionSource {
 	constructor(
-		private endpoint = "ws://127.0.0.1:24242/ws",
+		private endpoint = DEFAULT_THINKRAIL_WS_URL,
 		private timeoutMs = 5000,
 	) {}
 
