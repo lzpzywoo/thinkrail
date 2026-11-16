@@ -1,6 +1,7 @@
 import type { MuseHubClient } from "./hub-client";
 import type { SessionManager } from "./session-manager";
 import {
+	type RealProjectSource,
 	type RealSessionSource,
 	type SessionFilter,
 	ThinkRailSessionReader,
@@ -12,7 +13,7 @@ export class ToolRouter {
 	constructor(
 		private sessionManager: SessionManager,
 		private hubClient: MuseHubClient,
-		private realSessions: RealSessionSource = new ThinkRailSessionReader(),
+		private realSessions: RealSessionSource & RealProjectSource = new ThinkRailSessionReader(),
 	) {
 		this.hubClient.on("task.dispatched", (msg: WsTaskDispatchedMessage) => {
 			this.handleTaskDispatched(msg).catch((err) => {
@@ -24,6 +25,17 @@ export class ToolRouter {
 	public async handleTaskDispatched(msg: WsTaskDispatchedMessage): Promise<void> {
 		const { taskId, payload } = msg;
 		const { toolId, parameters = {} } = payload;
+
+		if (toolId === "list_projects") {
+			const result = await this.realSessions.listProjects();
+			this.hubClient.sendCompleted(taskId, {
+				ok: true,
+				source: "thinkrail",
+				...result,
+				summary: `ThinkRail共有${result.total}个项目`,
+			});
+			return;
+		}
 
 		if (
 			parameters.source !== undefined &&

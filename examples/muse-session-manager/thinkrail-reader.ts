@@ -44,8 +44,19 @@ export interface SessionQuery {
 	sessionId?: string;
 }
 
+export interface RealProject {
+	projectId: string;
+	name: string;
+	closed: boolean;
+	lastOpened: number;
+}
+
 export interface RealSessionSource {
 	list(query?: SessionQuery): Promise<{ total: number; sessions: RealSession[] }>;
+}
+
+export interface RealProjectSource {
+	listProjects(): Promise<{ total: number; projects: RealProject[] }>;
 }
 
 class ThinkRailConnection {
@@ -58,6 +69,7 @@ class ThinkRailConnection {
 		}
 	>();
 	private socket: WebSocket;
+	private endpointLabel: string;
 	readonly ready: Promise<void>;
 
 	constructor(
@@ -68,6 +80,7 @@ class ThinkRailConnection {
 		url.searchParams.set("client", `muse-${randomUUID()}`);
 		url.searchParams.set("protocol", String(PROTOCOL_VERSION));
 		const endpointLabel = `${url.protocol}//${url.host}${url.pathname}`;
+		this.endpointLabel = endpointLabel;
 		this.socket = new WebSocket(url);
 		this.ready = new Promise((resolve, reject) => {
 			const timer = setTimeout(() => {
@@ -116,14 +129,22 @@ class ThinkRailConnection {
 		});
 	}
 
-	async request<M extends WsMethodName>(method: M, params: WsParams<M>): Promise<WsResult<M>> {
+	async request<M extends WsMethodName>(
+		method: M,
+		params: WsParams<M>,
+		timeoutMs = this.timeoutMs,
+	): Promise<WsResult<M>> {
 		await this.ready;
 		const id = randomUUID();
 		return new Promise<WsResult<M>>((resolve, reject) => {
 			const timer = setTimeout(() => {
 				this.pending.delete(id);
-				reject(new Error(`ThinkRail查询超时: ${method}`));
-			}, this.timeoutMs);
+				reject(
+					new Error(
+						`ThinkRail已连接 (${this.endpointLabel})，但查询超时: ${method}（${timeoutMs}ms）；查询超时不代表主机离线`,
+					),
+				);
+			}, timeoutMs);
 			this.pending.set(id, { resolve: (value) => resolve(value as WsResult<M>), reject, timer });
 			try {
 				this.socket.send(JSON.stringify({ id, method, params }));
@@ -166,17 +187,34 @@ export function realStatus(state: SessionStateRecord["state"]): RealSessionStatu
 	}
 }
 
-export class ThinkRailSessionReader implements RealSessionSource {
+export class ThinkRailSessionReader implements RealSessionSource, RealProjectSource {
 	constructor(
 		private endpoint = DEFAULT_THINKRAIL_WS_URL,
 		private timeoutMs = 5000,
+		private sessionQueryTimeoutMs = timeoutMs * 6,
 	) {}
+
+	async listProjects() {
+		const connection = new ThinkRailConnection(this.endpoint, this.timeoutMs);
+		try {
+			const records = await connection.request("project.list", {});
+			const projects = records.map(({ id, name, closed, lastOpened }) => ({
+				projectId: id,
+				name,
+				closed: closed === true,
+				lastOpened,
+			}));
+			return { total: projects.length, projects };
+		} finally {
+			connection.close();
+		}
+	}
 
 	async list(query: SessionQuery = {}) {
 		const connection = new ThinkRailConnection(this.endpoint, this.timeoutMs);
 		try {
 			const [records, projects] = await Promise.all([
-				connection.request("session.stateList", {}),
+				connection.request("session.stateList", {}, this.sessionQueryTimeoutMs),
 				connection.request("project.list", {}),
 			]);
 			const workspaces = (

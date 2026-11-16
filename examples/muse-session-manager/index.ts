@@ -17,7 +17,11 @@ export * from "./types";
 export async function createAndStartService(options: SessionManagerConfig = {}) {
 	const hubClient = new MuseHubClient(options);
 	const sessionManager = new SessionManager(hubClient);
-	const reader = new ThinkRailSessionReader(options.thinkrailWsUrl);
+	const reader = new ThinkRailSessionReader(
+		options.thinkrailWsUrl,
+		5000,
+		options.thinkrailQueryTimeoutMs,
+	);
 	const router = new ToolRouter(sessionManager, hubClient, reader);
 	const observer = new ThinkRailObserver(
 		reader,

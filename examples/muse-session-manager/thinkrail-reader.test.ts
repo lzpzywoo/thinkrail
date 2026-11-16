@@ -45,7 +45,13 @@ function record(
 function fixture(
 	records: SessionStateRecord[],
 	plan: TodoPlan = { todos: [], groups: [] },
-	options: { protocol?: number; failTodo?: boolean; ignoreState?: boolean; hostname?: string } = {},
+	options: {
+		protocol?: number;
+		failTodo?: boolean;
+		ignoreState?: boolean;
+		hostname?: string;
+		stateDelayMs?: number;
+	} = {},
 ) {
 	const methods: string[] = [];
 	const acknowledgements: string[] = [];
@@ -65,7 +71,7 @@ function fixture(
 					}),
 				);
 			},
-			message(ws, raw) {
+			async message(ws, raw) {
 				const request = JSON.parse(String(raw));
 				if (request.ack) {
 					acknowledgements.push(...request.ack);
@@ -73,9 +79,13 @@ function fixture(
 				}
 				methods.push(request.method);
 				if (request.method === "session.stateList" && options.ignoreState) return;
+				if (request.method === "session.stateList" && options.stateDelayMs)
+					await Bun.sleep(options.stateDelayMs);
 				const results: Record<string, unknown> = {
 					"session.stateList": records,
-					"project.list": [{ id: "p1", name: "真实项目" }],
+					"project.list": [
+						{ id: "p1", name: "真实项目", lastOpened: 123, path: "C:/private/project" },
+					],
 					"workspace.list": [{ id: "w1", name: "真实工作区", lastActiveAt: 123 }],
 					"todo.list": plan,
 				};
@@ -134,6 +144,58 @@ describe("real ThinkRail session reader", () => {
 		servers.pop()?.stop(true);
 		await expect(new ThinkRailSessionReader(service.url).list()).rejects.toThrow(service.url);
 	});
+	it("lists projects without scanning unavailable sessions and omits filesystem paths", async () => {
+		const service = fixture([], undefined, { ignoreState: true });
+		const result = await new ThinkRailSessionReader(service.url).listProjects();
+		expect(result).toEqual({
+			total: 1,
+			projects: [{ projectId: "p1", name: "真实项目", closed: false, lastOpened: 123 }],
+		});
+		expect(service.methods).toEqual(["project.list"]);
+		expect(JSON.stringify(result)).not.toContain("C:/private/project");
+	});
+
+	it("routes project requests independently of the slow session catalog", async () => {
+		const service = fixture([], undefined, { ignoreState: true });
+		const hub = new MuseHubClient();
+		const completed: unknown[] = [];
+		hub.sendCompleted = (_id, result) => {
+			completed.push(result);
+			return true;
+		};
+		const router = new ToolRouter(
+			new SessionManager(),
+			hub,
+			new ThinkRailSessionReader(service.url),
+		);
+		await router.handleTaskDispatched({
+			type: "task.dispatched",
+			taskId: "projects",
+			timestamp: 1,
+			payload: { taskId: "projects", toolId: "list_projects", parameters: {} },
+		});
+		expect(completed[0]).toMatchObject({
+			ok: true,
+			source: "thinkrail",
+			total: 1,
+			projects: [{ name: "真实项目" }],
+		});
+		expect(service.methods).toEqual(["project.list"]);
+	});
+
+	it("allows a session scan beyond the ordinary RPC deadline", async () => {
+		const service = fixture([record("slow")], undefined, { stateDelayMs: 100 });
+		const result = await new ThinkRailSessionReader(service.url, 50, 300).list();
+		expect(result.sessions[0]?.sessionId).toBe("slow");
+	});
+
+	it("distinguishes connected RPC timeouts from an offline host", async () => {
+		const service = fixture([], undefined, { ignoreState: true });
+		const reader = new ThinkRailSessionReader(service.url, 50, 100);
+		await expect(reader.list()).rejects.toThrow("已连接");
+		await expect(reader.list()).rejects.toThrow("session.stateList（100ms）");
+	});
+
 	it("reads authoritative live and background states plus real TODO progress", async () => {
 		const service = fixture(
 			[

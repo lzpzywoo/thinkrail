@@ -2,6 +2,15 @@ import type { SessionStepDefinition, ToolDefinition } from "./types";
 
 export const SESSION_MANAGER_TOOLS: ToolDefinition[] = [
 	{
+		toolId: "list_projects",
+		name: "查看ThinkRail项目列表",
+		description:
+			"当用户询问“ThinkRail有哪些项目”“查看ThinkRail项目”“列出项目”时调用本工具。直接读取真实项目目录，返回项目ID、名称、关闭标记和最近打开时间，不扫描会话或TODO。用户只问项目时请使用list_projects。",
+		category: "query",
+		riskLevel: "read-only",
+		inputSchema: { type: "object", properties: {}, additionalProperties: false },
+	},
+	{
 		toolId: "create_and_run_session",
 		name: "创建并执行演示会话任务",
 		description:
@@ -56,7 +65,7 @@ export const SESSION_MANAGER_TOOLS: ToolDefinition[] = [
 		toolId: "list_sessions",
 		name: "查看所有会话列表",
 		description:
-			"获取ThinkRail当前各项目、工作区的真实会话任务清单与运行状态。当用户询问“ThinkRail在跑什么任务”“有哪些会话”“当前进度”时调用。默认source=thinkrail，source=demo仅返回内存演示任务。recent按工作区最近活动排序。",
+			"获取ThinkRail当前各项目、工作区的真实会话任务清单与运行状态。当用户询问“ThinkRail在跑什么任务”“有哪些会话”“当前进度”时调用。默认source=thinkrail，source=demo仅返回内存演示任务。recent按工作区最近活动排序。用户仅询问有哪些项目时应使用list_projects，避免扫描会话。",
 		category: "query",
 		riskLevel: "read-only",
 		inputSchema: {

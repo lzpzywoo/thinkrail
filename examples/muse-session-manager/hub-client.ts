@@ -15,7 +15,12 @@ import type {
 } from "./types";
 
 export class MuseHubClient extends EventEmitter {
-	private config: Required<Omit<SessionManagerConfig, "thinkrailWsUrl" | "observationIntervalMs">>;
+	private config: Required<
+		Omit<
+			SessionManagerConfig,
+			"thinkrailWsUrl" | "thinkrailQueryTimeoutMs" | "observationIntervalMs"
+		>
+	>;
 	private sessionToken: string | null = null;
 	private ws: WebSocket | null = null;
 	private heartbeatTimer: ReturnType<typeof setInterval> | null = null;

@@ -187,6 +187,7 @@ export interface SessionManagerConfig {
 	appDescription?: string;
 	keywords?: string[];
 	thinkrailWsUrl?: string;
+	thinkrailQueryTimeoutMs?: number;
 	observationIntervalMs?: number;
 	secret?: string;
 	heartbeatIntervalMs?: number; // default: 20000 (20s)

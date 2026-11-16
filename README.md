@@ -280,8 +280,8 @@ repository layout.
 
 ### Muse local session bridge
 
-The optional [Muse session Hub](examples/muse-session-manager/README.md) exposes real ThinkRail session
-states and task-plan progress to Muse Pet through ThinkRail's public WebSocket API. Run
+The optional [Muse session Hub](examples/muse-session-manager/README.md) exposes real ThinkRail
+projects, session states and task-plan progress to Muse Pet through ThinkRail's public WebSocket API. Run
 `bun run examples/muse-session-manager/index.ts` alongside ThinkRail and Muse Pet. Queries are read-only;
 the bundled task executor is a separate simulation. Session and task titles are included in query results
 and local progress notifications.
