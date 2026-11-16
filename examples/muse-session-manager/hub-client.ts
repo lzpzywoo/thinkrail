@@ -79,6 +79,7 @@ export class MuseHubClient extends EventEmitter {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(manifest),
+        signal: AbortSignal.timeout(5000),
       });
 
       if (!response.ok) {
@@ -113,6 +114,10 @@ export class MuseHubClient extends EventEmitter {
     }
 
     return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.ws?.close();
+        reject(new Error('Muse Hub WebSocket连接超时'));
+      }, 5000);
       const wsUrl = `${this.config.hubWsUrl}?appId=${encodeURIComponent(
         this.config.appId
       )}&secret=${encodeURIComponent(this.config.secret)}`;
@@ -122,6 +127,7 @@ export class MuseHubClient extends EventEmitter {
         this.ws = ws;
 
         ws.onopen = () => {
+          clearTimeout(timeout);
           this.emit('connected');
           this.startHeartbeat();
           resolve();
@@ -145,6 +151,8 @@ export class MuseHubClient extends EventEmitter {
         };
 
         ws.onclose = (event: CloseEvent) => {
+          clearTimeout(timeout);
+          reject(new Error('Muse Hub WebSocket连接关闭'));
           this.emit('disconnected', { code: event.code, reason: event.reason });
           this.stopHeartbeat();
           this.ws = null;
@@ -153,6 +161,7 @@ export class MuseHubClient extends EventEmitter {
           }
         };
       } catch (err) {
+        clearTimeout(timeout);
         reject(err);
       }
     });
@@ -222,6 +231,7 @@ export class MuseHubClient extends EventEmitter {
           status: 'active',
           activeTasks: this.activeTasksCount,
         }),
+        signal: AbortSignal.timeout(5000),
       });
 
       if (!response.ok) {
@@ -326,8 +336,14 @@ export class MuseHubClient extends EventEmitter {
    */
   public async start(tools: ToolDefinition[]): Promise<void> {
     this.isRunning = true;
-    await this.register(tools);
-    await this.connectWs();
+    this.registeredTools = tools;
+    try {
+      await this.register(tools);
+      await this.connectWs();
+    } catch (error) {
+      this.scheduleReconnect();
+      throw error;
+    }
   }
 
   /**
@@ -353,6 +369,7 @@ export class MuseHubClient extends EventEmitter {
           )}`,
           {
             method: 'DELETE',
+            signal: AbortSignal.timeout(5000),
             headers: {
               Authorization: `Bearer ${this.sessionToken}`,
               'X-App-Id': this.config.appId,

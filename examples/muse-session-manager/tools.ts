@@ -3,9 +3,9 @@ import type { SessionStepDefinition, ToolDefinition } from './types';
 export const SESSION_MANAGER_TOOLS: ToolDefinition[] = [
   {
     toolId: 'create_and_run_session',
-    name: '创建并执行会话任务',
+    name: '创建并执行演示会话任务',
     description:
-      '创建一个包含多个子步骤的后台长耗时会话任务，执行过程中会实时向 Muse 反馈各步骤进度百分比、日志并在完成时弹出宠物气泡提醒',
+      '仅创建内存模拟演示流程，用于测试Muse进度反馈；不会执行真实ThinkRail代码检查、下载或数据处理。用户明确要求演示任务时调用。',
     category: 'action',
     riskLevel: 'write-safe',
     inputSchema: {
@@ -36,7 +36,7 @@ export const SESSION_MANAGER_TOOLS: ToolDefinition[] = [
     toolId: 'query_session_progress',
     name: '查询会话进度与详情',
     description:
-      '根据会话 ID（sessionId）或关联的任务 ID 查询当前会话的最新执行百分比、当前步骤状态以及执行日志',
+      '当用户询问ThinkRail某个会话的任务进度时，按sessionId、完整会话标题或唯一工作区名称查询真实运行状态与TODO步骤。planProgress是计划完成比例；无计划时百分比为null。source=demo仅查询演示任务。',
     category: 'query',
     riskLevel: 'read-only',
     inputSchema: {
@@ -44,8 +44,9 @@ export const SESSION_MANAGER_TOOLS: ToolDefinition[] = [
       properties: {
         sessionId: {
           type: 'string',
-          description: '目标会话的 ID（例如：sess_xxxx_yyyy）',
+          description: '真实ThinkRail会话ID（建议从list_sessions获取）、完整会话标题或唯一工作区名称',
         },
+        source: { type: 'string', enum: ['thinkrail', 'demo'], default: 'thinkrail' },
       },
       required: ['sessionId'],
     },
@@ -53,7 +54,7 @@ export const SESSION_MANAGER_TOOLS: ToolDefinition[] = [
   {
     toolId: 'list_sessions',
     name: '查看所有会话列表',
-    description: '获取当前已注册和执行的全部会话清单，可按运行状态筛选',
+    description: '获取ThinkRail当前各项目、工作区的真实会话任务清单与运行状态。当用户询问“ThinkRail在跑什么任务”“有哪些会话”“当前进度”时调用。默认source=thinkrail，source=demo仅返回内存演示任务。recent按工作区最近活动排序。',
     category: 'query',
     riskLevel: 'read-only',
     inputSchema: {
@@ -61,20 +62,23 @@ export const SESSION_MANAGER_TOOLS: ToolDefinition[] = [
       properties: {
         status: {
           type: 'string',
-          enum: ['all', 'running', 'completed', 'failed', 'cancelled'],
+          enum: ['all', 'active', 'recent', 'running', 'needs_input', 'idle', 'completed', 'failed', 'cancelled', 'interrupted'],
           description: '状态筛选条件，默认 all',
         },
         limit: {
           type: 'number',
-          description: '最多返回数量，默认 20',
+          description: '最多返回数量，默认20，最大100',
+          minimum: 1,
+          maximum: 100,
         },
+        source: { type: 'string', enum: ['thinkrail', 'demo'], default: 'thinkrail' },
       },
     },
   },
   {
     toolId: 'cancel_session',
     name: '取消或中断会话',
-    description: '中断并取消正在执行的会话任务，释放执行资源',
+    description: '仅取消本服务创建的内存演示会话，不会中断真实ThinkRail会话或Agent。用户要求停止演示任务时调用。',
     category: 'action',
     riskLevel: 'write-safe',
     inputSchema: {

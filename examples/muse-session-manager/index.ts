@@ -3,24 +3,32 @@ import { ToolRouter } from './router';
 import { SessionManager } from './session-manager';
 import { SESSION_MANAGER_TOOLS, buildPipelineSteps } from './tools';
 import type { SessionManagerConfig } from './types';
+import { ThinkRailSessionReader } from './thinkrail-reader';
+import { ThinkRailObserver } from './observer';
 
 export * from './types';
 export * from './hub-client';
 export * from './session-manager';
 export * from './tools';
 export * from './router';
+export * from './thinkrail-reader';
+export * from './observer';
 
 export async function createAndStartService(options: SessionManagerConfig = {}) {
   const hubClient = new MuseHubClient(options);
   const sessionManager = new SessionManager(hubClient);
-  const router = new ToolRouter(sessionManager, hubClient);
+  const reader = new ThinkRailSessionReader(options.thinkrailWsUrl);
+  const router = new ToolRouter(sessionManager, hubClient, reader);
+  const observer = new ThinkRailObserver(reader, hubClient, options.observationIntervalMs, (error) => {
+    console.warn('ThinkRail状态观察失败:', error instanceof Error ? error.message : String(error));
+  });
 
   console.log('🚀 正在启动 Muse 会话与任务管理服务...');
   console.log(`📡 目标 Muse Local Agent Hub: ${options.hubHttpUrl || 'http://127.0.0.1:19840'}`);
-  console.log(`🆔 App ID: ${options.appId || 'com.muse.session-manager'}`);
+  console.log(`🆔 App ID: ${options.appId || 'thinkrail.session-manager'}`);
 
-  hubClient.on('registered', (data) => {
-    console.log(`✅ 成功向 Muse Hub 注册！Session Token: ${data.sessionToken.substring(0, 16)}...`);
+  hubClient.on('registered', () => {
+    console.log('✅ 成功向Muse Hub注册ThinkRail会话工具');
   });
 
   hubClient.on('connected', () => {
@@ -57,11 +65,11 @@ export async function createAndStartService(options: SessionManagerConfig = {}) 
     console.warn(`🛑 [会话取消] ${session.id} (${session.name}) 已取消`);
   });
 
-  return { hubClient, sessionManager, router };
+  return { hubClient, sessionManager, router, reader, observer };
 }
 
 // CLI entrypoint
-if (import.meta.main || process.argv[1]?.endsWith('index.ts') || process.argv[1]?.endsWith('index.js')) {
+if (import.meta.main) {
   const args = process.argv.slice(2);
   const isDemo = args.includes('--demo');
   const hubUrl = process.env.MUSE_HUB_URL || 'http://127.0.0.1:19840';
@@ -72,8 +80,10 @@ if (import.meta.main || process.argv[1]?.endsWith('index.ts') || process.argv[1]
     hubHttpUrl: hubUrl,
     hubWsUrl: hubWsUrl,
     secret,
+    thinkrailWsUrl: process.env.THINKRAIL_WS_URL || 'ws://127.0.0.1:24242/ws',
   })
-    .then(async ({ hubClient, sessionManager }) => {
+    .then(async ({ hubClient, sessionManager, observer }) => {
+      observer.start();
       try {
         await hubClient.start(SESSION_MANAGER_TOOLS);
         console.log('✨ 服务已就绪，正在监听来自 Muse / Luna 的任务分派...');
@@ -87,13 +97,14 @@ if (import.meta.main || process.argv[1]?.endsWith('index.ts') || process.argv[1]
           });
           console.log(`已创建演示会话: ${demoSession.id}`);
         }
-      } catch (err: any) {
-        console.warn(`⚠️ 无法连接至 Muse Hub (${err.message})。`);
+      } catch (err) {
+        console.warn(`⚠️ 无法连接至 Muse Hub (${err instanceof Error ? err.message : String(err)})。`);
         console.warn('💡 提示：如果 Muse Pet 尚未启动，服务将在后台静默等待并支持离线会话管理。');
       }
 
       const shutdown = async () => {
         console.log('\n🛑 正在停止 Muse 会话管理服务...');
+        observer.stop();
         await hubClient.stop();
         process.exit(0);
       };

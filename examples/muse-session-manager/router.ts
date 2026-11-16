@@ -1,12 +1,14 @@
 import type { MuseHubClient } from './hub-client';
 import type { SessionManager } from './session-manager';
 import { buildPipelineSteps } from './tools';
-import type { WsTaskDispatchedMessage } from './types';
+import type { SessionStatus, WsTaskDispatchedMessage } from './types';
+import { ThinkRailSessionReader, type RealSessionSource, type SessionFilter } from './thinkrail-reader';
 
 export class ToolRouter {
   constructor(
     private sessionManager: SessionManager,
-    private hubClient: MuseHubClient
+    private hubClient: MuseHubClient,
+    private realSessions: RealSessionSource = new ThinkRailSessionReader(),
   ) {
     this.hubClient.on('task.dispatched', (msg: WsTaskDispatchedMessage) => {
       this.handleTaskDispatched(msg).catch((err) => {
@@ -22,6 +24,32 @@ export class ToolRouter {
     const { taskId, payload } = msg;
     const { toolId, parameters = {} } = payload;
 
+    if (parameters.source !== undefined && parameters.source !== 'demo' && parameters.source !== 'thinkrail') {
+      throw new Error('source必须为thinkrail或demo');
+    }
+    if ((toolId === 'list_sessions' || toolId === 'query_session_progress') && parameters.source !== 'demo') {
+      const status = String(parameters.status ?? 'all');
+      const allowed: SessionFilter[] = ['all', 'active', 'recent', 'running', 'needs_input', 'idle', 'completed', 'failed', 'cancelled', 'interrupted'];
+      if (!allowed.includes(status as SessionFilter)) throw new Error('无效的会话状态筛选');
+      const sessionId = parameters.sessionId;
+      if (toolId === 'query_session_progress' && (typeof sessionId !== 'string' || !sessionId.trim())) throw new Error('需要提供sessionId或完整会话名称');
+      const limit = Number(parameters.limit ?? 20);
+      if (!Number.isFinite(limit) || limit < 1) throw new Error('limit必须为正数');
+      const result = await this.realSessions.list({
+        status: status as SessionFilter,
+        limit,
+        ...(toolId === 'query_session_progress' ? { sessionId: String(sessionId) } : {}),
+      });
+      this.hubClient.sendCompleted(taskId, {
+        ok: toolId === 'list_sessions' || result.total > 0,
+        source: 'thinkrail',
+        ...result,
+        summary: result.total ? `查询到 ${result.total} 个真实ThinkRail会话（按工作区最近活动排序）` : '没有匹配的ThinkRail会话',
+        progressMeaning: 'planProgress是TODO计划完成比例，不代表Agent执行百分比',
+      });
+      return;
+    }
+
     switch (toolId) {
       case 'create_and_run_session': {
         const name = (parameters.name as string) || `长耗时任务-${new Date().toLocaleTimeString()}`;
@@ -32,7 +60,7 @@ export class ToolRouter {
         const steps = buildPipelineSteps(taskType, stepCount, stepDurationMs);
 
         // Create and auto-start session; SessionManager will stream progress to Muse Hub via taskId
-        const session = this.sessionManager.createSession({
+        this.sessionManager.createSession({
           name,
           parameters,
           steps,
@@ -97,7 +125,7 @@ export class ToolRouter {
       }
 
       case 'list_sessions': {
-        const status = (parameters.status as any) || 'all';
+        const status = (parameters.status as SessionStatus | 'all') || 'all';
         const limit = Number(parameters.limit) || 20;
         const list = this.sessionManager.listSessions({ status, limit });
 
@@ -138,7 +166,9 @@ export class ToolRouter {
 
       case 'send_pet_bubble': {
         const message = (parameters.message as string) || '你好！';
-        const eventType = (parameters.type as any) || 'notification';
+        const requestedType = parameters.type ?? 'notification';
+        if (requestedType !== 'task.completed' && requestedType !== 'notification' && requestedType !== 'alert') throw new Error('无效的气泡事件类型');
+        const eventType = requestedType;
 
         const sent = this.hubClient.sendProactiveEvent(message, eventType);
         this.hubClient.sendCompleted(taskId, {
