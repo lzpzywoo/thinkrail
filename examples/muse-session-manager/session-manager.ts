@@ -191,14 +191,14 @@ export class SessionManager extends EventEmitter {
             step: stepState,
             result: stepResult,
           });
-        } catch (stepErr: any) {
+        } catch (stepErr) {
           if (abortController.signal.aborted) {
             stepState.status = 'cancelled';
             stepState.error = 'Step cancelled';
             throw new Error('Session cancelled');
           }
           stepState.status = 'failed';
-          stepState.error = stepErr?.message || String(stepErr);
+          stepState.error = stepErr instanceof Error ? stepErr.message : String(stepErr);
           stepState.completedAt = Date.now();
           throw stepErr;
         }
@@ -223,7 +223,7 @@ export class SessionManager extends EventEmitter {
       this.emit('session_completed', this.getSnapshot(state.id)!);
 
       return this.getSnapshot(state.id)!;
-    } catch (err: any) {
+    } catch (err) {
       if (abortController.signal.aborted) {
         state.status = 'cancelled';
         state.error = 'Session execution was cancelled';
@@ -232,9 +232,10 @@ export class SessionManager extends EventEmitter {
         this.emit('session_cancelled', this.getSnapshot(state.id)!);
       } else {
         state.status = 'failed';
-        state.error = err?.message || String(err);
+        const error = err instanceof Error ? err.message : String(err);
+        state.error = error;
         this.updateHubActiveCount();
-        this.notifyFailed(internal, state.error);
+        this.notifyFailed(internal, error);
         this.emit('session_failed', this.getSnapshot(state.id)!);
       }
       return this.getSnapshot(state.id)!;

@@ -29,12 +29,15 @@ export class MuseHubClient extends EventEmitter {
     this.config = {
       hubHttpUrl: config.hubHttpUrl || 'http://127.0.0.1:19840',
       hubWsUrl: config.hubWsUrl || 'ws://127.0.0.1:19840/ws',
-      appId: config.appId || 'com.muse.session-manager',
-      appName: config.appName || '会话与任务管理器',
-      appVersion: config.appVersion || '1.0.0',
+      appId: config.appId || 'thinkrail.session-manager',
+      appName: config.appName || 'ThinkRail 会话与任务管理器',
+      appVersion: config.appVersion || '1.1.0',
+      keywords: config.keywords ?? ['thinkrail', 'session', '会话', '任务', '工作区', 'pi'],
+      thinkrailWsUrl: config.thinkrailWsUrl ?? 'ws://127.0.0.1:24242/ws',
+      observationIntervalMs: config.observationIntervalMs ?? 5000,
       appDescription:
         config.appDescription ||
-        '提供多步骤会话生命周期管理、长耗时任务实时进度推送与桌面宠物气泡通知',
+        '查询 ThinkRail 真实项目、工作区、会话、Agent运行状态与任务计划进度，并推送桌面宠物通知。用户询问ThinkRail在跑什么任务、有哪些会话、当前进度时使用。',
       secret: config.secret || 'muse-session-manager-secret-2026',
       heartbeatIntervalMs: config.heartbeatIntervalMs || 20000,
       reconnectIntervalMs: config.reconnectIntervalMs || 3000,
@@ -65,6 +68,7 @@ export class MuseHubClient extends EventEmitter {
       description: this.config.appDescription,
       secret: this.config.secret,
       tools,
+      keywords: this.config.keywords,
     };
 
     const registerUrl = `${this.config.hubHttpUrl}/api/v1/register`;

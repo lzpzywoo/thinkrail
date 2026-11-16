@@ -25,6 +25,7 @@ export interface AppManifest {
   secret: string;
   icon?: string;
   tools: ToolDefinition[];
+  keywords?: string[];
 }
 
 export interface HubRegisterResponse {
@@ -195,6 +196,9 @@ export interface SessionManagerConfig {
   appName?: string;
   appVersion?: string;
   appDescription?: string;
+  keywords?: string[];
+  thinkrailWsUrl?: string;
+  observationIntervalMs?: number;
   secret?: string;
   heartbeatIntervalMs?: number; // default: 20000 (20s)
   reconnectIntervalMs?: number; // default: 3000
