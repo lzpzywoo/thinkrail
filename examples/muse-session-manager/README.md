@@ -1,80 +1,83 @@
-# 🐾 Muse 会话管理与进度实时反馈系统 (Muse Session Manager)
+# ThinkRail → Muse 会话 Hub
 
-基于 **Muse Local Agent Hub** 协议标准构建的轻量级、全功能 TypeScript 会话管理服务。使 Muse 桌面宠物（Luna）能够发现、派发长耗时任务，并在执行过程中**实时获取子步骤进度**，在关键节点与完成时接收**桌面气泡主动提醒**。
+独立 TypeScript/Bun 服务，向 Muse Pet 注册 **ThinkRail 会话与任务管理器**。默认查询运行中的 ThinkRail 主机，返回真实项目、工作区、会话状态和 TODO 任务计划。服务通过公开 WebSocket 协议读取数据，不需要导入 ThinkRail 服务端或 Pi 运行时。
 
----
+## 启动
 
-## 🌟 核心特性
-
-1. **实时双向进度反馈**：
-   - 任务执行中通过 WebSocket 流式上报 `task.progress`，精准到子步骤百分比与实时日志。
-   - 聚合计算整体会话完成度（0% ~ 100%），支持各步骤权重自定义。
-2. **状态与进度主动查询**：
-   - 注册只读工具 `query_session_progress` 和 `list_sessions`，支持在手机端或桌面端聊天随时询问 Luna：“查看刚才的数据处理进度”。
-3. **桌面宠物气泡主动提醒**：
-   - 任务完成或遇到异常时，通过 `event` 主动通道触发 Muse 桌面宠物头上弹出实时气泡对话框（Proactive Notification）。
-4. **协作式任务中断与取消**：
-   - 支持来自 Muse 的 `task.cancelled` 指令与本地 `cancel_session` 工具，基于 `AbortController` 优雅中止正在运行的流程。
-5. **开箱即用与容错重连**：
-   - 自动维护 HTTP 心跳（20s），断线自动指数退避重连，支持离线会话管理与调试。
-
----
-
-## 🛠️ 暴露给 Muse 的工具清单
-
-| 工具 ID | 名称 | 类别 | 风险级别 | 作用与交互场景 |
-|---|---|---|---|---|
-| `create_and_run_session` | 创建并执行会话任务 | action | write-safe | 派发长耗时任务（如代码巡检、数据处理、下载管道），实时推送步骤进度 |
-| `query_session_progress` | 查询会话进度与详情 | query | read-only | 查询指定会话的当前百分比、当前步骤状态与各步骤执行结果 |
-| `list_sessions` | 查看所有会话列表 | query | read-only | 列出活跃、执行中与已完成的所有历史会话摘要 |
-| `cancel_session` | 取消或中断会话 | action | write-safe | 中断正在执行中的会话任务，释放资源 |
-| `send_pet_bubble` | 桌面宠物气泡提醒 | action | write-safe | 直接让桌面的 Muse 宠物弹出指定文本的气泡框 |
-
----
-
-## 🚀 快速启动
-
-### 1. 运行会话管理服务
-
-在终端中执行：
+先启动 ThinkRail 和 Muse Pet，在此仓库根目录执行：
 
 ```bash
-# 使用 Bun 直接启动
 bun run examples/muse-session-manager/index.ts
+```
 
-# 或启动自带演示任务的 Demo 模式
+如 ThinkRail 使用自定义端口，请在启动前设置 `THINKRAIL_WS_URL`。默认地址为 `ws://127.0.0.1:24242/ws`；ThinkRail 可能因端口占用选择其他端口，请使用实际启动地址。
+
+| 环境变量 | 默认值 | 用途 |
+| --- | --- | --- |
+| `THINKRAIL_WS_URL` | `ws://127.0.0.1:24242/ws` | 真实 ThinkRail 主机 |
+| `MUSE_HUB_URL` | `http://127.0.0.1:19840` | Muse 注册/心跳服务 |
+| `MUSE_HUB_WS_URL` | `ws://127.0.0.1:19840/ws` | Muse 任务事件通道 |
+| `MUSE_HUB_SECRET` | `muse-session-secret-2026` | 注册身份密钥；建议设置为自己生成且持久保留的值 |
+
+App ID 为 `thinkrail.session-manager`，名称和描述包含 ThinkRail，注册关键词包括 `thinkrail`、`session`、`会话`、`任务`、`工作区`、`pi`。此前的 `com.muse.session-manager` 是另一个注册身份，升级前请停止旧服务；此服务不会注销其他身份。相同 appId 必须继续使用首次注册时的密钥。
+
+Muse 不可用时会按固定间隔重试注册。ThinkRail 不可用、协议版本不匹配或查询超时时，查询报告失败；不会将连接失败包装为空会话列表。
+
+## 在 Muse 中查询
+
+输入 `/hub` 或 `/hub tools` 检查应用及工具，然后询问：
+
+- “查看下 ThinkRail 目前的会话任务。”
+- “ThinkRail 哪些会话还在执行，哪些在等我回答？”
+- “查询这个会话的任务计划进度。”
+
+自然语言发现依赖你运行的 Muse 版本对 name、description 和 keywords 的支持；本服务提交这些元数据，不修改 Muse 的意图识别器。
+
+| 工具 | 默认行为 |
+| --- | --- |
+| `list_sessions` | 只读查询真实会话；支持 all、active、recent、running、needs_input、idle、completed、failed、cancelled、interrupted；默认返回20条，最多100条 |
+| `query_session_progress` | 按真实会话ID、完整标题或唯一工作区名称查询；重名时要求提供ID |
+| `send_pet_bubble` | 发送 Muse 本地宠物提醒 |
+| `create_and_run_session` | **仅创建内存模拟演示**；不会执行真正的扫描、下载或数据处理 |
+| `cancel_session` | **仅取消演示会话**；不会中断真实 ThinkRail Agent |
+
+查询结果示例：
+
+```json
+{
+  "source": "thinkrail",
+  "sessionId": "actual-session-id",
+  "projectName": "ThinkRail",
+  "workspaceName": "Hub集成",
+  "status": "running",
+  "planProgress": { "done": 2, "total": 5, "percentage": 40 },
+  "currentTasks": [{ "id": "step-id", "title": "实现接入", "status": "in_progress" }]
+}
+```
+
+`planProgress` 是 TODO 完成数比例，**不代表 Agent 执行百分比**。没有 TODO 时 percentage 为 null；计划达到100%也不表示 Agent 已停止。运行状态来自 ThinkRail 的 `session.stateList`：等待输入优先，后台工作也视为运行；闲置会话不会被误报为成功。`recent` 按工作区最后活动时间排序，同工作区内没有会话级时间排序保证。返回的 total 为筛选后、截断前的数量。
+
+## 自动反馈
+
+服务默认每5秒观察最近最多100个真实会话的状态与任务计划变化。首次连接建立基线，后续变化通过通用 `event` 发送 Muse 本地气泡提醒。断线或读取失败后重新建立基线，不补发历史完成消息。提醒是尽力发送的本地事件，不作为云端会话结果；自然语言查询结果由对应 Hub 任务返回。
+
+真实会话不是该服务拥有的 Hub 任务，因此不会为它们伪造 `task.progress` 或 `task.completed` 帧。服务不发送完整聊天记录、文件路径、差异或 TODO 备注；会话标题、项目/工作区名称及任务标题会包含在查询中。
+
+## 演示与代码接入
+
+```bash
 bun run examples/muse-session-manager/index.ts --demo
 ```
 
-### 2. 配置环境变量（可选）
+演示流程只模拟子步骤进度。查询演示数据必须显式传 `source: "demo"`；默认查询不会混入演示数据。
 
-| 环境变量 | 默认值 | 说明 |
-|---|---|---|
-| `MUSE_HUB_URL` | `http://127.0.0.1:19840` | Muse Local Agent Hub 的 HTTP 基础地址 |
-| `MUSE_HUB_WS_URL` | `ws://127.0.0.1:19840/ws` | Muse Hub WebSocket 基础地址 |
-| `MUSE_HUB_SECRET` | `muse-session-secret-2026` | 与 Hub 注册认证的 Secret 密钥 |
+从 `index.ts` 公共入口导入 `createAndStartService` 可以创建组件（该函数保留原命名，但不自动连接）。随后调用 `hubClient.start(SESSION_MANAGER_TOOLS)` 并启动 `observer.start()`；退出时先 `observer.stop()`，再 `await hubClient.stop()`。可通过 `SessionManagerConfig.observationIntervalMs` 调整观察频率。
 
----
-
-## 💬 在 Muse / 手机端使用示例
-
-1. 启动 Muse Pet 后，在聊天窗口输入 `/hub`，即可看到已连接的「**会话与任务管理器**」应用及其暴露的 5 个工具。
-2. **让 Luna 启动任务**：
-   - 👤 用户：“*帮我启动一次代码全面质量扫描任务*”
-   - 🐱 Luna 派发 `create_and_run_session`，参数 `{ name: "代码质量扫描", taskType: "code_inspection" }`。
-   - 📊 服务实时推送：
-     - `15% - 代码静态语法与规范检查 (Biome/ESLint) - 处理中...`
-     - `40% - 类型系统与模块边界依赖审查 (TypeScript & Seams)...`
-     - `75% - 运行核心单元测试与覆盖率统计...`
-   - 🎉 完成后，桌面 Muse 宠物弹出气泡：“*🎉 会话「代码质量扫描」已顺利完成全部 4 个步骤！*”
-3. **随时询问进度**：
-   - 👤 用户：“*刚才的代码检查任务完成了吗？*”
-   - 🐱 Luna 调用 `query_session_progress` 获取最新百分比并汇报给用户。
-
----
-
-## 🧪 运行测试
+## 验证
 
 ```bash
-bun test examples/muse-session-manager/session-manager.test.ts
+bun test examples/muse-session-manager
+bun node_modules/typescript/bin/tsc -p examples/muse-session-manager/tsconfig.json
 ```
+
+测试使用隔离 HTTP/WebSocket fixture，不读取用户真实数据或调用模型。覆盖真实协议读取、查询路由、元数据注册、状态/计划计算、查询失败、超时和提醒去重。真实 Muse/手机联调尚未在此变更中验证。

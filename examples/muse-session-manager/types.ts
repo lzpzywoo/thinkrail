@@ -3,203 +3,192 @@
  * Conforms to Muse Local Agent Hub Integration Protocol
  */
 
-export type RiskLevel = 'read-only' | 'write-safe' | 'write-dangerous';
-export type ToolCategory = 'query' | 'action' | 'vision' | 'system';
+export type RiskLevel = "read-only" | "write-safe" | "write-dangerous";
+export type ToolCategory = "query" | "action" | "vision" | "system";
 
 export interface ToolDefinition {
-  toolId: string;
-  name: string;
-  description: string;
-  category: ToolCategory;
-  riskLevel: RiskLevel;
-  inputSchema: Record<string, unknown>;
-  outputSchema?: Record<string, unknown>;
-  requiresApproval?: boolean;
+	toolId: string;
+	name: string;
+	description: string;
+	category: ToolCategory;
+	riskLevel: RiskLevel;
+	inputSchema: Record<string, unknown>;
+	outputSchema?: Record<string, unknown>;
+	requiresApproval?: boolean;
 }
 
 export interface AppManifest {
-  appId: string;
-  name: string;
-  version: string;
-  description: string;
-  secret: string;
-  icon?: string;
-  tools: ToolDefinition[];
-  keywords?: string[];
+	appId: string;
+	name: string;
+	version: string;
+	description: string;
+	secret: string;
+	icon?: string;
+	tools: ToolDefinition[];
+	keywords?: string[];
 }
 
 export interface HubRegisterResponse {
-  ok: boolean;
-  data?: {
-    sessionToken: string;
-    hubVersion: number;
-    heartbeatTimeoutMs: number;
-  };
-  error?: string;
+	ok: boolean;
+	data?: {
+		sessionToken: string;
+		hubVersion: number;
+		heartbeatTimeoutMs: number;
+	};
+	error?: string;
 }
 
 export interface HubHeartbeatResponse {
-  ok: boolean;
-  data?: {
-    online: boolean;
-  };
-  error?: string;
+	ok: boolean;
+	data?: {
+		online: boolean;
+	};
+	error?: string;
 }
 
 // ---------------- WebSocket Protocol Messages ----------------
 
 export interface WsTaskDispatchedPayload {
-  taskId: string;
-  toolId: string;
-  parameters: Record<string, unknown>;
+	taskId: string;
+	toolId: string;
+	parameters: Record<string, unknown>;
 }
 
 export interface WsTaskDispatchedMessage {
-  taskId: string;
-  type: 'task.dispatched';
-  timestamp: number;
-  payload: WsTaskDispatchedPayload;
+	taskId: string;
+	type: "task.dispatched";
+	timestamp: number;
+	payload: WsTaskDispatchedPayload;
 }
 
 export interface WsTaskCancelledMessage {
-  taskId: string;
-  type: 'task.cancelled';
-  timestamp?: number;
-  payload?: {
-    reason?: string;
-  };
+	taskId: string;
+	type: "task.cancelled";
+	timestamp?: number;
+	payload?: {
+		reason?: string;
+	};
 }
 
 export interface WsTaskApprovalRequiredMessage {
-  taskId: string;
-  type: 'task.approval_required';
-  timestamp: number;
-  payload?: {
-    toolId: string;
-    riskLevel: RiskLevel;
-  };
+	taskId: string;
+	type: "task.approval_required";
+	timestamp: number;
+	payload?: {
+		toolId: string;
+		riskLevel: RiskLevel;
+	};
 }
 
 export type IncomingHubMessage =
-  | WsTaskDispatchedMessage
-  | WsTaskCancelledMessage
-  | WsTaskApprovalRequiredMessage;
+	| WsTaskDispatchedMessage
+	| WsTaskCancelledMessage
+	| WsTaskApprovalRequiredMessage;
 
 export interface WsTaskProgressMessage {
-  type: 'task.progress';
-  taskId: string;
-  payload: {
-    percentage: number;
-    message: string;
-    currentStep?: string;
-    stepIndex?: number;
-    totalSteps?: number;
-  };
+	type: "task.progress";
+	taskId: string;
+	payload: {
+		percentage: number;
+		message: string;
+		currentStep?: string;
+		stepIndex?: number;
+		totalSteps?: number;
+	};
 }
 
 export interface WsTaskCompletedMessage {
-  type: 'task.completed';
-  taskId: string;
-  payload: {
-    result: unknown;
-  };
+	type: "task.completed";
+	taskId: string;
+	payload: {
+		result: unknown;
+	};
 }
 
 export interface WsTaskFailedMessage {
-  type: 'task.failed';
-  taskId: string;
-  payload: {
-    error: string;
-    details?: unknown;
-  };
+	type: "task.failed";
+	taskId: string;
+	payload: {
+		error: string;
+		details?: unknown;
+	};
 }
 
 export interface WsProactiveEventMessage {
-  type: 'event';
-  payload: {
-    type: 'task.completed' | 'task.progress' | 'notification' | 'alert';
-    message: string;
-    metadata?: Record<string, unknown>;
-  };
+	type: "event";
+	payload: {
+		type: "task.completed" | "task.progress" | "notification" | "alert";
+		message: string;
+		metadata?: Record<string, unknown>;
+	};
 }
 
 export type OutgoingHubMessage =
-  | WsTaskProgressMessage
-  | WsTaskCompletedMessage
-  | WsTaskFailedMessage
-  | WsProactiveEventMessage;
+	| WsTaskProgressMessage
+	| WsTaskCompletedMessage
+	| WsTaskFailedMessage
+	| WsProactiveEventMessage;
 
 // ---------------- Session State Machine ----------------
 
-export type SessionStatus =
-  | 'pending'
-  | 'running'
-  | 'paused'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
+export type SessionStatus = "pending" | "running" | "paused" | "completed" | "failed" | "cancelled";
 
-export type StepStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
+export type StepStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
 
 export interface SessionStepContext {
-  reportProgress: (percentageInStep: number, message: string) => void;
-  isCancelled: () => boolean;
-  signal: AbortSignal;
+	reportProgress: (percentageInStep: number, message: string) => void;
+	isCancelled: () => boolean;
+	signal: AbortSignal;
 }
 
 export interface SessionStepDefinition {
-  id: string;
-  title: string;
-  description?: string;
-  weight?: number; // relative weight towards overall percentage (default: 1)
-  execute: (ctx: SessionStepContext) => Promise<unknown>;
+	id: string;
+	title: string;
+	description?: string;
+	weight?: number; // relative weight towards overall percentage (default: 1)
+	execute: (ctx: SessionStepContext) => Promise<unknown>;
 }
 
 export interface SessionStepState {
-  id: string;
-  title: string;
-  status: StepStatus;
-  progress: number; // 0 - 100 within this step
-  message?: string;
-  startedAt?: number;
-  completedAt?: number;
-  result?: unknown;
-  error?: string;
+	id: string;
+	title: string;
+	status: StepStatus;
+	progress: number; // 0 - 100 within this step
+	message?: string;
+	startedAt?: number;
+	completedAt?: number;
+	result?: unknown;
+	error?: string;
 }
 
 export interface SessionState {
-  id: string;
-  name: string;
-  status: SessionStatus;
-  progress: number; // Overall progress 0 - 100
-  currentStepIndex: number;
-  totalSteps: number;
-  steps: SessionStepState[];
-  parameters: Record<string, unknown>;
-  result?: unknown;
-  error?: string;
-  createdAt: number;
-  updatedAt: number;
-  completedAt?: number;
-  associatedTaskId?: string; // If triggered by Muse via Hub
+	id: string;
+	name: string;
+	status: SessionStatus;
+	progress: number; // Overall progress 0 - 100
+	currentStepIndex: number;
+	totalSteps: number;
+	steps: SessionStepState[];
+	parameters: Record<string, unknown>;
+	result?: unknown;
+	error?: string;
+	createdAt: number;
+	updatedAt: number;
+	completedAt?: number;
+	associatedTaskId?: string; // If triggered by Muse via Hub
 }
 
 export interface SessionManagerConfig {
-  hubHttpUrl?: string; // e.g. "http://127.0.0.1:19840"
-  hubWsUrl?: string;   // e.g. "ws://127.0.0.1:19840/ws"
-  appId?: string;
-  appName?: string;
-  appVersion?: string;
-  appDescription?: string;
-  keywords?: string[];
-  thinkrailWsUrl?: string;
-  observationIntervalMs?: number;
-  secret?: string;
-  heartbeatIntervalMs?: number; // default: 20000 (20s)
-  reconnectIntervalMs?: number; // default: 3000
+	hubHttpUrl?: string; // e.g. "http://127.0.0.1:19840"
+	hubWsUrl?: string; // e.g. "ws://127.0.0.1:19840/ws"
+	appId?: string;
+	appName?: string;
+	appVersion?: string;
+	appDescription?: string;
+	keywords?: string[];
+	thinkrailWsUrl?: string;
+	observationIntervalMs?: number;
+	secret?: string;
+	heartbeatIntervalMs?: number; // default: 20000 (20s)
+	reconnectIntervalMs?: number; // default: 3000
 }

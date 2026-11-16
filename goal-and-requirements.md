@@ -81,6 +81,9 @@ What ThinkRail does, at product level; the linked spec owns the detail.
 - **Chats** — concurrent `pi` sessions per workspace, each with its own model, pi-reported token/cost,
   steering and follow-ups mid-run, skill and prompt-template autocomplete, and history search
   ([[submodule-web-chat]], [[submodule-server-agent]]).
+- **Optional Muse bridge** — a standalone example exposes real session state and TODO plan progress to
+  Muse Pet for read-only queries and local change notifications through the public host protocol
+  ([[module-muse-session-manager]]).
 - **Existing skills reused** — portable Agent Skills kept for other coding agents are read in place;
   `pi` stays the parser and runtime ([[submodule-server-agent]]).
 - **Plans with per-step review** — a shared TODO plan the agent works and the user edits; a completed step
