@@ -696,7 +696,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 					{...dropHandlers}
 					className={cn(
 						"relative grid grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)_auto] items-end gap-x-4 gap-y-4 overflow-hidden rounded-md border border-control-border-default bg-control-bg bg-clip-padding p-4 transition-colors focus-within:border-control-border-active has-[textarea:focus-visible]:focus-ring",
-						isDraggingOver && "border-control-border-active ring-2 ring-control-border-active/50",
+						isDraggingOver && "border-control-border-active ring-1 ring-control-border-active",
 						expanded && growthLimit === "half-chat" && "max-h-[50cqh]",
 					)}
 				>
