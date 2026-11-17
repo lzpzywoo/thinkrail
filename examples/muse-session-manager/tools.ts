@@ -1,4 +1,7 @@
+import { EXPLORATION_TOOLS } from "./thinkrail-software-exploration";
 import type { SessionStepDefinition, ToolDefinition } from "./types";
+
+export { EXPLORATION_TOOLS };
 
 export const SESSION_MANAGER_TOOLS: ToolDefinition[] = [
 	{
@@ -141,6 +144,11 @@ export const SESSION_MANAGER_TOOLS: ToolDefinition[] = [
 			required: ["message"],
 		},
 	},
+];
+
+export const ALL_SESSION_MANAGER_TOOLS: ToolDefinition[] = [
+	...EXPLORATION_TOOLS,
+	...SESSION_MANAGER_TOOLS,
 ];
 
 /**

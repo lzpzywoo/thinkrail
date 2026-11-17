@@ -6,6 +6,7 @@ import {
 	type SessionFilter,
 	ThinkRailSessionReader,
 } from "./thinkrail-reader";
+import { ThinkRailExplorationAdapter } from "./thinkrail-software-exploration";
 import { buildPipelineSteps } from "./tools";
 import type { SessionStatus, WsTaskDispatchedMessage } from "./types";
 
@@ -13,15 +14,18 @@ export class ToolRouter {
 	private readonly sessionManager: SessionManager;
 	private readonly hubClient: MuseHubClient;
 	private readonly realSessions: RealSessionSource & RealProjectSource;
+	private readonly explorationAdapter: ThinkRailExplorationAdapter;
 
 	constructor(
 		sessionManager: SessionManager,
 		hubClient: MuseHubClient,
 		realSessions: RealSessionSource & RealProjectSource = new ThinkRailSessionReader(),
+		explorationAdapter?: ThinkRailExplorationAdapter,
 	) {
 		this.sessionManager = sessionManager;
 		this.hubClient = hubClient;
 		this.realSessions = realSessions;
+		this.explorationAdapter = explorationAdapter ?? new ThinkRailExplorationAdapter(realSessions);
 		this.hubClient.on("task.dispatched", (msg: WsTaskDispatchedMessage) => {
 			this.handleTaskDispatched(msg).catch((err) => {
 				this.hubClient.sendFailed(msg.taskId, err?.message || "Error processing tool dispatch");
@@ -32,6 +36,12 @@ export class ToolRouter {
 	public async handleTaskDispatched(msg: WsTaskDispatchedMessage): Promise<void> {
 		const { taskId, payload } = msg;
 		const { toolId, parameters = {} } = payload;
+
+		if (this.explorationAdapter.isExplorationTool(toolId)) {
+			const explorationResult = await this.explorationAdapter.handleToolCall(toolId, parameters);
+			this.hubClient.sendCompleted(taskId, explorationResult);
+			return;
+		}
 
 		if (toolId === "list_projects") {
 			const result = await this.realSessions.listProjects();

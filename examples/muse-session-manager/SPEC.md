@@ -24,3 +24,11 @@ The default endpoint uses localhost, matching the host's default bind name. Hard
 Snapshots read project/workspace catalogs and the selected sessions' todo.list plans. Snapshot connections use unique client IDs, request deadlines, response acknowledgements, protocol-version validation, and close in finally. Polls never overlap; disconnect resets the observer baseline so historical completions are not announced on reconnect. Observed real-session changes use generic proactive events, never lifecycle frames for tasks the bridge does not own. Notifications are local and best effort; they are not cloud conversation results. A poll observes at most the latest 100 sessions. No full transcript, paths, diffs, task notes, or pending-dialog content/tool arguments are sent; the exported waiting state carries only its kind.
 
 Existing create/cancel tools act only on in-memory demo sessions. Actual ThinkRail creation/cancellation is outside this read-only integration. Hub registration identity changes to thinkrail.session-manager; old registrations must be stopped by their owner rather than silently deleted.
+
+## Dynamic Software Exploration (muse-software/1)
+
+The bridge implements the read-only dynamic software exploration protocol (`muse-software/1`). The manifest registers the `exploration` capability mapping `overviewToolId` (`software_overview`), `discoverToolId` (`software_discover`), and `readToolId` (`software_read`). All three endpoints are strictly `riskLevel: 'read-only'` and `requiresApproval: false`.
+
+Exploration responses conform strictly to the standard envelope (`protocol`, `kind`, `status`, `source`, `observedAt`, `data`, `references`, `nextCursor`). Availability states are clearly differentiated: successful queries with empty results return `status: 'ok'`, unsupported references return `status: 'unsupported'`, and daemon offline/timeout failures return `status: 'unavailable'` (never misleading `ok` with empty lists).
+
+References use opaque identifiers (`thinkrail:...`) and never permit arbitrary filesystem traversal or code execution. Payloads are bounded to 256,000 bytes, maximum reference list length to 30, and maximum object depth to 32. Entities omit file paths, diffs, internal tokens, and full transcripts.

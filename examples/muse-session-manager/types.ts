@@ -17,6 +17,13 @@ export interface ToolDefinition {
 	requiresApproval?: boolean;
 }
 
+export interface SoftwareExplorationDescriptor {
+	version: 1;
+	overviewToolId: string;
+	discoverToolId: string;
+	readToolId: string;
+}
+
 export interface AppManifest {
 	appId: string;
 	name: string;
@@ -26,6 +33,38 @@ export interface AppManifest {
 	icon?: string;
 	tools: ToolDefinition[];
 	keywords?: string[];
+	exploration?: SoftwareExplorationDescriptor;
+}
+
+// ---------------- Software Understanding & Exploration (muse-software/1) ----------------
+
+export type ExplorationKind = "overview" | "directory" | "resource";
+export type ExplorationStatus = "ok" | "unsupported" | "unavailable";
+export type ExplorationSourceKind = "live" | "documentation" | "cache";
+export type ExplorationRefKind = "guide" | "collection" | "entity" | "query";
+
+export interface ExplorationSource {
+	id: string;
+	kind: ExplorationSourceKind;
+}
+
+export interface ExplorationReference {
+	ref: string;
+	title: string;
+	kind: ExplorationRefKind;
+	description?: string;
+	inputSchema?: Record<string, unknown>;
+}
+
+export interface ExplorationEnvelope<T = unknown> {
+	protocol: "muse-software/1";
+	kind: ExplorationKind;
+	status: ExplorationStatus;
+	source: ExplorationSource;
+	observedAt: string;
+	data?: T;
+	references?: ExplorationReference[];
+	nextCursor?: string | null;
 }
 
 export interface HubRegisterResponse {
@@ -192,4 +231,5 @@ export interface SessionManagerConfig {
 	secret?: string;
 	heartbeatIntervalMs?: number; // default: 20000 (20s)
 	reconnectIntervalMs?: number; // default: 3000
+	exploration?: SoftwareExplorationDescriptor;
 }

@@ -48,6 +48,9 @@ bun run examples/muse-session-manager/index.ts
 
 | 工具 | 默认行为 |
 | --- | --- |
+| `software_overview` | **动态探索**：获取 ThinkRail 概述、概念模型（项目/工作区/会话/任务）、边界限制与根引用 |
+| `software_discover` | **动态探索**：探索资源目录、实体及可用查询集合（项目列表、会话集等），支持游标分页与检索 |
+| `software_read` | **动态探索**：读取指定资源详情（`thinkrail:projects`、`thinkrail:sessions`、`thinkrail:session:<id>`、`thinkrail:project:<id>`） |
 | `list_projects` | 直接查询真实项目ID、名称、关闭标记与最近打开时间；不扫描会话、不返回文件路径 |
 | `list_sessions` | 只读查询真实会话；支持 all、active、recent、running、needs_input、idle、completed、failed、cancelled、interrupted；默认返回20条，最多100条 |
 | `query_session_progress` | 按真实会话ID、完整标题或唯一工作区名称查询；重名时要求提供ID |

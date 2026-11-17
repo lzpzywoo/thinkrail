@@ -18,9 +18,9 @@ export class MuseHubClient extends EventEmitter {
 	private readonly config: Required<
 		Omit<
 			SessionManagerConfig,
-			"thinkrailWsUrl" | "thinkrailQueryTimeoutMs" | "observationIntervalMs"
+			"thinkrailWsUrl" | "thinkrailQueryTimeoutMs" | "observationIntervalMs" | "exploration"
 		>
-	>;
+	> & { exploration?: SessionManagerConfig["exploration"] };
 	private sessionToken: string | null = null;
 	private ws: WebSocket | null = null;
 	private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -36,14 +36,25 @@ export class MuseHubClient extends EventEmitter {
 			hubWsUrl: config.hubWsUrl || "ws://127.0.0.1:19840/ws",
 			appId: config.appId || "thinkrail.session-manager",
 			appName: config.appName || "ThinkRail 会话与任务管理器",
-			appVersion: config.appVersion || "1.1.0",
-			keywords: config.keywords ?? ["thinkrail", "session", "会话", "任务", "工作区", "pi"],
+			appVersion: config.appVersion || "2.0.0",
+			keywords: config.keywords ?? [
+				"thinkrail",
+				"session",
+				"task",
+				"workspace",
+				"agent",
+				"会话",
+				"任务",
+				"工作区",
+				"pi",
+			],
 			appDescription:
 				config.appDescription ||
-				"查询 ThinkRail 真实项目、工作区、会话、Agent运行状态与任务计划进度，并推送桌面宠物通知。用户询问ThinkRail在跑什么任务、有哪些会话、当前进度时使用。",
+				"Understand ThinkRail projects, workspaces, and live agent sessions. Query progress on demand. 查询 ThinkRail 真实项目、工作区、会话、Agent运行状态与任务计划进度，并推送桌面宠物通知。用户询问ThinkRail在跑什么任务、有哪些会话、当前进度时使用。",
 			secret: config.secret || "muse-session-manager-secret-2026",
 			heartbeatIntervalMs: config.heartbeatIntervalMs || 20000,
 			reconnectIntervalMs: config.reconnectIntervalMs || 3000,
+			exploration: config.exploration,
 		};
 	}
 
@@ -72,6 +83,7 @@ export class MuseHubClient extends EventEmitter {
 			secret: this.config.secret,
 			tools,
 			keywords: this.config.keywords,
+			...(this.config.exploration ? { exploration: this.config.exploration } : {}),
 		};
 
 		const registerUrl = `${this.config.hubHttpUrl}/api/v1/register`;

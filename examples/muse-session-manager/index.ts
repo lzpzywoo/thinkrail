@@ -3,7 +3,11 @@ import { ThinkRailObserver } from "./observer";
 import { ToolRouter } from "./router";
 import { SessionManager } from "./session-manager";
 import { DEFAULT_THINKRAIL_WS_URL, ThinkRailSessionReader } from "./thinkrail-reader";
-import { buildPipelineSteps, SESSION_MANAGER_TOOLS } from "./tools";
+import {
+	createThinkRailExploration,
+	DEFAULT_EXPLORATION_DESCRIPTOR,
+} from "./thinkrail-software-exploration";
+import { ALL_SESSION_MANAGER_TOOLS, buildPipelineSteps } from "./tools";
 import type { SessionManagerConfig } from "./types";
 
 export * from "./hub-client";
@@ -11,18 +15,24 @@ export * from "./observer";
 export * from "./router";
 export * from "./session-manager";
 export * from "./thinkrail-reader";
+export * from "./thinkrail-software-exploration";
 export * from "./tools";
 export * from "./types";
 
 export async function createAndStartService(options: SessionManagerConfig = {}) {
-	const hubClient = new MuseHubClient(options);
+	const exploration = options.exploration ?? DEFAULT_EXPLORATION_DESCRIPTOR;
+	const hubClient = new MuseHubClient({
+		...options,
+		exploration,
+	});
 	const sessionManager = new SessionManager(hubClient);
 	const reader = new ThinkRailSessionReader(
 		options.thinkrailWsUrl,
 		5000,
 		options.thinkrailQueryTimeoutMs,
 	);
-	const router = new ToolRouter(sessionManager, hubClient, reader);
+	const { adapter: explorationAdapter } = createThinkRailExploration(reader, exploration);
+	const router = new ToolRouter(sessionManager, hubClient, reader, explorationAdapter);
 	const observer = new ThinkRailObserver(
 		reader,
 		hubClient,
@@ -45,8 +55,8 @@ export async function createAndStartService(options: SessionManagerConfig = {}) 
 
 	hubClient.on("connected", () => {
 		console.log("🔌 WebSocket 已连接至 Muse Local Agent Hub 事件总线");
-		console.log(`🛠️ 已注册 ${SESSION_MANAGER_TOOLS.length} 个工具，可在 Muse 对话中随时调用：`);
-		for (const tool of SESSION_MANAGER_TOOLS) {
+		console.log(`🛠️ 已注册 ${ALL_SESSION_MANAGER_TOOLS.length} 个工具，可在 Muse 对话中随时调用：`);
+		for (const tool of ALL_SESSION_MANAGER_TOOLS) {
 			console.log(`   - [${tool.riskLevel}] ${tool.toolId}: ${tool.name} (${tool.description})`);
 		}
 	});
@@ -79,7 +89,7 @@ export async function createAndStartService(options: SessionManagerConfig = {}) 
 		console.warn(`🛑 [会话取消] ${session.id} (${session.name}) 已取消`);
 	});
 
-	return { hubClient, sessionManager, router, reader, observer };
+	return { hubClient, sessionManager, router, reader, observer, explorationAdapter };
 }
 
 // CLI entrypoint
@@ -99,7 +109,7 @@ if (import.meta.main) {
 		.then(async ({ hubClient, sessionManager, observer }) => {
 			observer.start();
 			try {
-				await hubClient.start(SESSION_MANAGER_TOOLS);
+				await hubClient.start(ALL_SESSION_MANAGER_TOOLS);
 				console.log("✨ 服务已就绪，正在监听来自 Muse / Luna 的任务分派...");
 
 				if (isDemo) {
