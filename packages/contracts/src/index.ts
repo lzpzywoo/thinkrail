@@ -1,6 +1,8 @@
 export type * from "./domain";
 export {
 	ACCEPTED_IMAGE_TYPES,
+	ATTACHMENT_UPLOAD_HEADER,
+	ATTACHMENTS_ROUTE,
 	base64EncodedLength,
 	CODE_FONT_SIZE,
 	COMPOSER_GROWTH_LIMITS,
@@ -43,6 +45,7 @@ export {
 	isSystemThemePair,
 	isTerminalWindowsShell,
 	isThemeMode,
+	isUploadedAttachmentResult,
 	isUserFontFile,
 	isValidTemplateName,
 	isWindowsDeviceName,

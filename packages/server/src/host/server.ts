@@ -13,6 +13,7 @@ import type {
 } from "@thinkrail/contracts";
 import {
 	ARTIFACTS_PROTOCOL_VERSION,
+	ATTACHMENTS_ROUTE,
 	CONTINUATION_PROTOCOL_VERSION,
 	FEEDBACK_SURVEY_PROTOCOL_VERSION,
 	FONTS_PROTOCOL_VERSION,
@@ -204,6 +205,7 @@ import {
 	serveWorktreeFile,
 	serveWorktreeView,
 } from "./fileRoutes";
+import { serveAttachmentUpload } from "./attachmentRoutes";
 import { serveUserFonts } from "./fontRoutes";
 import { setFsNudgePublisher } from "./fsNudge";
 import { applyGitCeiling } from "./gitCeiling";
@@ -489,6 +491,9 @@ export async function createServer(options: CreateServerOptions = {}): Promise<R
 			}
 			if (url.pathname.startsWith(USER_FONTS_ROUTE)) {
 				return serveUserFonts(req, url.pathname);
+			}
+			if (url.pathname.startsWith(ATTACHMENTS_ROUTE)) {
+				return serveAttachmentUpload(req, url.pathname);
 			}
 			if (url.pathname.startsWith(WORKSPACE_VIEW_ROUTE)) {
 				return serveWorktreeView(req.method, url);

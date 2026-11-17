@@ -1893,6 +1893,31 @@ export const USER_FONT_UPLOAD_HEADER = {
 } as const;
 export const USER_FONT_EXTENSIONS = [".ttf", ".otf", ".woff", ".woff2"] as const;
 
+/** Accepts (`PUT`) attachment uploads for a workspace. */
+export const ATTACHMENTS_ROUTE = "/attachments/";
+/** Required on `PUT` attachment uploads: a non-simple header forces a CORS preflight the host never answers. */
+export const ATTACHMENT_UPLOAD_HEADER = {
+	name: "X-ThinkRail-Request",
+	value: "attachment-upload",
+} as const;
+
+export interface UploadedAttachmentResult {
+	workspaceId: string;
+	path: string;
+	fileName: string;
+	size: number;
+}
+
+export function isUploadedAttachmentResult(value: unknown): value is UploadedAttachmentResult {
+	if (typeof value !== "object" || value === null) return false;
+	return (
+		typeof Reflect.get(value, "workspaceId") === "string" &&
+		typeof Reflect.get(value, "path") === "string" &&
+		typeof Reflect.get(value, "fileName") === "string" &&
+		typeof Reflect.get(value, "size") === "number"
+	);
+}
+
 export const SUBAGENT_MAX_CONCURRENT = { min: 1, max: 16, default: 4 } as const;
 
 export function isSubagentMaxConcurrent(value: unknown): value is number {
