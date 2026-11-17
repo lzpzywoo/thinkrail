@@ -7,7 +7,7 @@ import {
 	RiFolderFill,
 	RiFolderLine,
 } from "@remixicon/react";
-import type { ComponentPropsWithoutRef, MouseEvent, ReactNode, Ref } from "react";
+import type { ComponentPropsWithoutRef, DragEvent, MouseEvent, ReactNode, Ref } from "react";
 import { useTreeItem } from "./treeNavigation";
 
 type MenuTriggerHandlers = Pick<
@@ -33,6 +33,8 @@ export function TreeRow({
 	icon,
 	trailing,
 	highlight = "self",
+	draggable,
+	onDragStart,
 	onClick,
 	onDoubleClick,
 	onContextMenu,
@@ -60,6 +62,8 @@ export function TreeRow({
 	icon?: RemixiconComponentType | undefined;
 	trailing?: ReactNode;
 	highlight?: "self" | "wrapper";
+	draggable?: boolean | undefined;
+	onDragStart?: ((event: DragEvent<HTMLButtonElement>) => void) | undefined;
 	onClick?: ((event: MouseEvent) => void) | undefined;
 	onDoubleClick?: (() => void) | undefined;
 	onContextMenu?: ((event: MouseEvent) => void) | undefined;
@@ -89,6 +93,8 @@ export function TreeRow({
 			data-active={active ? true : undefined}
 			data-status={dataStatus}
 			data-viewed={dataViewed ? true : undefined}
+			draggable={draggable}
+			onDragStart={onDragStart}
 			onClick={onClick}
 			onDoubleClick={onDoubleClick}
 			onContextMenu={onContextMenu}

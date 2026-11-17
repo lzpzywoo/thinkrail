@@ -5,7 +5,11 @@ import {
 	RiClipboardLine as Paste,
 	RiDeleteBinLine as Trash,
 } from "@remixicon/react";
-import type { FileNode } from "@thinkrail/contracts";
+import {
+	type FileNode,
+	THINKRAIL_FILE_DRAG_MIME,
+	type ThinkRailFileDragData,
+} from "@thinkrail/contracts";
 import { useT } from "@thinkrail/locales/react";
 import { describeResource, PENDING_TEXT_META } from "@thinkrail/resource-renderers";
 import { Button } from "@thinkrail/ui/button";
@@ -296,6 +300,18 @@ function FileNodeRow({
 						}
 						onClick={isDir ? toggleDirectory : firstClickOnly(() => open("preview"))}
 						onDoubleClick={isDir ? undefined : () => open("keep")}
+						draggable
+						onDragStart={(event) => {
+							const dragPath = directory?.path ?? node.path;
+							const data: ThinkRailFileDragData = {
+								workspaceId,
+								path: dragPath,
+								kind: node.kind,
+							};
+							event.dataTransfer.setData(THINKRAIL_FILE_DRAG_MIME, JSON.stringify(data));
+							event.dataTransfer.setData("text/plain", dragPath);
+							event.dataTransfer.effectAllowed = "copy";
+						}}
 						onWarm={
 							isDir || !warmFile
 								? undefined

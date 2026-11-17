@@ -1918,6 +1918,22 @@ export function isUploadedAttachmentResult(value: unknown): value is UploadedAtt
 	);
 }
 
+export const THINKRAIL_FILE_DRAG_MIME = "application/x-thinkrail-file";
+
+export interface ThinkRailFileDragData {
+	workspaceId: string;
+	path: string;
+	kind?: "file" | "dir";
+}
+
+export function isThinkRailFileDragData(value: unknown): value is ThinkRailFileDragData {
+	if (typeof value !== "object" || value === null) return false;
+	return (
+		typeof Reflect.get(value, "workspaceId") === "string" &&
+		typeof Reflect.get(value, "path") === "string"
+	);
+}
+
 export const SUBAGENT_MAX_CONCURRENT = { min: 1, max: 16, default: 4 } as const;
 
 export function isSubagentMaxConcurrent(value: unknown): value is number {

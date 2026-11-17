@@ -33,4 +33,9 @@ describe("TreeRow accessibility state", () => {
 		expect(file).toContain('data-tree-keep="true"');
 		expect(file).not.toContain("data-tree-toggle");
 	});
+
+	it("supports draggable rows", () => {
+		const draggableFile = render({ kind: "file", label: "a.ts", draggable: true });
+		expect(draggableFile).toContain('draggable="true"');
+	});
 });
