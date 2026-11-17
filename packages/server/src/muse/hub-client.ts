@@ -151,12 +151,12 @@ export class MuseHubClient extends EventEmitter {
 						const msg = JSON.parse(rawStr) as IncomingHubMessage;
 						this.handleIncomingMessage(msg);
 					} catch (err) {
-						log.warn("无法解析来自 Muse Hub 的 WebSocket 消息", { error: String(err) });
+						log.warn("无法解析来自 Muse Hub 的 WebSocket 消息", err);
 					}
 				};
 
 				ws.onerror = (err) => {
-					log.debug("Muse Hub WebSocket 错误", { error: String(err) });
+					log.debug("Muse Hub WebSocket 错误", err);
 					this.emit("ws_error", err);
 				};
 
@@ -267,7 +267,7 @@ export class MuseHubClient extends EventEmitter {
 				this.emit("task.approval_required", msg);
 				break;
 			default:
-				log.debug("收到未知类型的 Muse Hub 消息", { type: (msg as { type?: string }).type });
+				log.debug(`收到未知类型的 Muse Hub 消息: ${(msg as { type?: string }).type}`);
 		}
 	}
 
@@ -275,7 +275,7 @@ export class MuseHubClient extends EventEmitter {
 		this.stopHeartbeat();
 		this.heartbeatTimer = setInterval(() => {
 			this.sendHeartbeat().catch((err) => {
-				log.debug("向 Muse Hub 发送心跳失败", { error: String(err) });
+				log.debug("向 Muse Hub 发送心跳失败", err);
 			});
 		}, this.config.heartbeatIntervalMs);
 	}
@@ -323,7 +323,7 @@ export class MuseHubClient extends EventEmitter {
 				await this.register(this.registeredTools);
 				await this.connectWs();
 			} catch (err) {
-				log.debug("重新连接至 Muse Hub 失败，将在稍后重试", { error: String(err) });
+				log.debug("重新连接至 Muse Hub 失败，将在稍后重试", err);
 				this.scheduleReconnect();
 			}
 		}, this.config.reconnectIntervalMs);

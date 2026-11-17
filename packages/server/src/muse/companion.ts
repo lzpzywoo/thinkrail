@@ -4,7 +4,10 @@ import { ThinkRailObserver } from "./observer";
 import { ToolRouter } from "./router";
 import { SessionManager } from "./session-manager";
 import { ThinkRailSessionReader } from "./thinkrail-reader";
-import { createThinkRailExploration } from "./thinkrail-software-exploration";
+import {
+	createThinkRailExploration,
+	DEFAULT_EXPLORATION_DESCRIPTOR,
+} from "./thinkrail-software-exploration";
 import { ALL_SESSION_MANAGER_TOOLS } from "./tools";
 import type { MuseCompanionConfig } from "./types";
 
@@ -23,41 +26,42 @@ export class MuseCompanion {
 
 	constructor(config: MuseCompanionConfig) {
 		this.config = config;
-		this.hubClient = new MuseHubClient(config);
+		const exploration = config.exploration ?? DEFAULT_EXPLORATION_DESCRIPTOR;
+		this.hubClient = new MuseHubClient({
+			...config,
+			exploration,
+		});
 		this.sessionManager = new SessionManager(this.hubClient);
 		this.reader = new ThinkRailSessionReader(
 			config.thinkrailWsUrl,
 			5000,
 			config.thinkrailQueryTimeoutMs,
 		);
-		const { adapter: explorationAdapter } = createThinkRailExploration(
-			this.reader,
-			config.exploration,
-		);
+		const { adapter: explorationAdapter } = createThinkRailExploration(this.reader, exploration);
 		this.router = new ToolRouter(this.sessionManager, this.hubClient, this.reader, explorationAdapter);
 		this.observer = new ThinkRailObserver(
 			this.reader,
 			this.hubClient,
 			config.observationIntervalMs,
 			(error) => {
-				log.debug("ThinkRailObserver polling error", { error: String(error) });
+				log.debug("ThinkRailObserver polling error", error);
 			},
 		);
 
 		this.hubClient.on("registered", () => {
-			log.info("Registered ThinkRail capabilities with Muse Local Agent Hub", {
-				appId: config.appId || "thinkrail.session-manager",
-			});
+			log.info(
+				`Registered ThinkRail capabilities with Muse Local Agent Hub (${config.appId || "thinkrail.session-manager"})`,
+			);
 		});
 
 		this.hubClient.on("connected", () => {
-			log.info("Connected to Muse Local Agent Hub event bus", {
-				toolCount: ALL_SESSION_MANAGER_TOOLS.length,
-			});
+			log.info(
+				`Connected to Muse Local Agent Hub event bus (${ALL_SESSION_MANAGER_TOOLS.length} tools)`,
+			);
 		});
 
 		this.hubClient.on("disconnected", ({ code, reason }) => {
-			log.debug("Disconnected from Muse Local Agent Hub", { code, reason });
+			log.debug(`Disconnected from Muse Local Agent Hub (code: ${code}, reason: ${reason})`);
 		});
 	}
 
@@ -88,9 +92,9 @@ export class MuseCompanion {
 		try {
 			await this.hubClient.start(ALL_SESSION_MANAGER_TOOLS);
 		} catch (err) {
-			log.debug("Muse Local Agent Hub not reachable, will retry registration periodically", {
-				error: err instanceof Error ? err.message : String(err),
-			});
+			log.debug(
+				`Muse Local Agent Hub not reachable, will retry registration periodically: ${err instanceof Error ? err.message : String(err)}`,
+			);
 			if (this.isRunning) {
 				this.retryTimer = setTimeout(() => {
 					this.retryTimer = null;
