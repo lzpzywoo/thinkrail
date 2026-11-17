@@ -196,6 +196,7 @@ import {
 	type WorkspaceLifecycleEvent,
 } from "../workspaces";
 import { createArtifactEventMapper } from "./artifactEvents";
+import { serveAttachmentUpload } from "./attachmentRoutes";
 import { seesChats } from "./chats";
 import { continueToolHost, observeContinuation, setContinuationPublisher } from "./continuations";
 import {
@@ -205,7 +206,6 @@ import {
 	serveWorktreeFile,
 	serveWorktreeView,
 } from "./fileRoutes";
-import { serveAttachmentUpload } from "./attachmentRoutes";
 import { serveUserFonts } from "./fontRoutes";
 import { setFsNudgePublisher } from "./fsNudge";
 import { applyGitCeiling } from "./gitCeiling";

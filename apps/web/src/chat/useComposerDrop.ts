@@ -1,6 +1,6 @@
 import {
-	THINKRAIL_FILE_DRAG_MIME,
 	isThinkRailFileDragData,
+	THINKRAIL_FILE_DRAG_MIME,
 	type UploadedAttachmentResult,
 } from "@thinkrail/contracts";
 import { type ClipboardEvent, type DragEvent, useCallback, useRef, useState } from "react";
@@ -46,6 +46,33 @@ export function hasFilePayload(dt: DataTransfer | null): boolean {
 	if (!dt) return false;
 	const types = Array.from(dt.types);
 	return types.includes("Files") || types.includes(THINKRAIL_FILE_DRAG_MIME);
+}
+
+async function uploadAndInsertFiles(
+	workspaceId: string,
+	files: File[],
+	uploadFn: (workspaceId: string, file: File) => Promise<UploadedAttachmentResult>,
+	onInsertReferences: (items: FileReferenceItem[]) => void,
+	onUploadError?: ((fileName: string) => void) | undefined,
+	onDone?: (() => void) | undefined,
+): Promise<void> {
+	try {
+		const settled = await Promise.allSettled(files.map((file) => uploadFn(workspaceId, file)));
+		const items: FileReferenceItem[] = [];
+		for (let i = 0; i < settled.length; i++) {
+			const result = settled[i];
+			if (result?.status === "fulfilled") {
+				items.push({ path: result.value.path, kind: "file" });
+			} else {
+				onUploadError?.(files[i]?.name ?? "file");
+			}
+		}
+		if (items.length > 0) {
+			onInsertReferences(items);
+		}
+	} finally {
+		onDone?.();
+	}
 }
 
 export interface UseComposerDropOptions {
@@ -136,25 +163,14 @@ export function useComposerDrop({
 				const names = otherFiles.map((f) => f.name);
 				setUploadingFiles((prev) => [...prev, ...names]);
 
-				try {
-					const settled = await Promise.allSettled(
-						otherFiles.map((file) => uploadFn(workspaceId, file)),
-					);
-					const items: FileReferenceItem[] = [];
-					for (let i = 0; i < settled.length; i++) {
-						const result = settled[i];
-						if (result?.status === "fulfilled") {
-							items.push({ path: result.value.path, kind: "file" });
-						} else {
-							onUploadError?.(otherFiles[i]?.name ?? "file");
-						}
-					}
-					if (items.length > 0) {
-						onInsertReferences(items);
-					}
-				} finally {
-					setUploadingFiles((prev) => prev.filter((name) => !names.includes(name)));
-				}
+				await uploadAndInsertFiles(
+					workspaceId,
+					otherFiles,
+					uploadFn,
+					onInsertReferences,
+					onUploadError,
+					() => setUploadingFiles((prev) => prev.filter((name) => !names.includes(name))),
+				);
 			}
 		},
 		[onAddImages, onInsertReferences, onUploadError, uploader, workspaceId],
@@ -179,25 +195,14 @@ export function useComposerDrop({
 				const names = otherFiles.map((f) => f.name);
 				setUploadingFiles((prev) => [...prev, ...names]);
 
-				try {
-					const settled = await Promise.allSettled(
-						otherFiles.map((file) => uploadFn(workspaceId, file)),
-					);
-					const items: FileReferenceItem[] = [];
-					for (let i = 0; i < settled.length; i++) {
-						const result = settled[i];
-						if (result?.status === "fulfilled") {
-							items.push({ path: result.value.path, kind: "file" });
-						} else {
-							onUploadError?.(otherFiles[i]?.name ?? "file");
-						}
-					}
-					if (items.length > 0) {
-						onInsertReferences(items);
-					}
-				} finally {
-					setUploadingFiles((prev) => prev.filter((name) => !names.includes(name)));
-				}
+				await uploadAndInsertFiles(
+					workspaceId,
+					otherFiles,
+					uploadFn,
+					onInsertReferences,
+					onUploadError,
+					() => setUploadingFiles((prev) => prev.filter((name) => !names.includes(name))),
+				);
 			}
 		},
 		[onAddImages, onInsertReferences, onUploadError, uploader, workspaceId],

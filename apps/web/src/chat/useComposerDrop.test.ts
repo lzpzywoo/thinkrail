@@ -1,13 +1,8 @@
 import { describe, expect, it } from "bun:test";
-import { THINKRAIL_FILE_DRAG_MIME, type ThinkRailFileDragData } from "@thinkrail/contracts";
+import { THINKRAIL_FILE_DRAG_MIME } from "@thinkrail/contracts";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import {
-	hasFilePayload,
-	insertReferencesIntoDraft,
-	type UseComposerDropOptions,
-	useComposerDrop,
-} from "./useComposerDrop";
+import { hasFilePayload, insertReferencesIntoDraft, useComposerDrop } from "./useComposerDrop";
 
 describe("insertReferencesIntoDraft", () => {
 	it("returns original draft when items are empty", () => {
@@ -63,7 +58,7 @@ describe("hasFilePayload", () => {
 	});
 
 	it("processes ThinkRail internal file drag on drop", async () => {
-		const inserted: any[] = [];
+		const inserted: unknown[] = [];
 		let captured: ReturnType<typeof useComposerDrop> | undefined;
 		function Harness() {
 			captured = useComposerDrop({
@@ -101,7 +96,7 @@ describe("hasFilePayload", () => {
 	});
 
 	it("uploads non-image files and inserts reference", async () => {
-		const inserted: any[] = [];
+		const inserted: unknown[] = [];
 		const uploadedCalls: { wsId: string; fileName: string }[] = [];
 		let captured: ReturnType<typeof useComposerDrop> | undefined;
 		function Harness() {

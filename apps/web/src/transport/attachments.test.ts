@@ -38,16 +38,16 @@ describe("uploadAttachment", () => {
 			capturedHeaders = init?.headers;
 			capturedBody = init?.body;
 			return new Response(JSON.stringify(expected), { status: 200 });
-		}) as typeof fetch;
+		}) as unknown as typeof fetch;
 
 		const file = new File(["hello world"], "test.txt", { type: "text/plain" });
 		const result = await uploadAttachment("ws-123", file);
 
 		expect(capturedUrl).toBe(`http://localhost:3000${ATTACHMENTS_ROUTE}ws-123/test.txt`);
 		expect(capturedMethod).toBe("PUT");
-		expect(
-			(capturedHeaders as Record<string, string>)[ATTACHMENT_UPLOAD_HEADER.name],
-		).toBe(ATTACHMENT_UPLOAD_HEADER.value);
+		expect((capturedHeaders as Record<string, string>)[ATTACHMENT_UPLOAD_HEADER.name]).toBe(
+			ATTACHMENT_UPLOAD_HEADER.value,
+		);
 		expect(capturedBody).toBe(file);
 		expect(result).toEqual(expected);
 	});
@@ -55,7 +55,7 @@ describe("uploadAttachment", () => {
 	it("throws an error when HTTP request fails", async () => {
 		globalThis.fetch = (async () => {
 			return new Response("payload too large", { status: 413 });
-		}) as typeof fetch;
+		}) as unknown as typeof fetch;
 
 		const file = new File(["data"], "test.txt");
 		await expect(uploadAttachment("ws-123", file)).rejects.toThrow("payload too large");

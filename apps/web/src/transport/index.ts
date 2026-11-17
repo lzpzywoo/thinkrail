@@ -1,10 +1,10 @@
+export { uploadAttachment } from "./attachments";
 export {
 	clientErrorReport,
 	installClientErrorReporting,
 	reportClientError,
 } from "./errorReports";
 export { errorText } from "./errorText";
-export { uploadAttachment } from "./attachments";
 export { hostUrl, uploadUserFont } from "./fonts";
 export { requestMcpList, watchMcpWorkspace } from "./mcp";
 export { RequestError, RequestTimeoutError, wsErrorCode } from "./requestError";

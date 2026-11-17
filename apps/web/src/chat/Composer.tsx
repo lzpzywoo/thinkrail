@@ -55,11 +55,7 @@ import {
 	type ModelSelection,
 } from "./ModelEffortPicker";
 import { isModelCommand, parseModelCommand } from "./nativeCommands";
-import {
-	PromptImageChips,
-	type PromptImagesOwner,
-	usePromptImages,
-} from "./promptImages";
+import { PromptImageChips, type PromptImagesOwner, usePromptImages } from "./promptImages";
 import { composerShiftTabOut, composerTranscriptStep } from "./transcriptNavigation";
 import type { ChatAttachment } from "./types";
 import { insertReferencesIntoDraft, useComposerDrop } from "./useComposerDrop";
