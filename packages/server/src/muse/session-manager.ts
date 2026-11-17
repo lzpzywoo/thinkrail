@@ -1,13 +1,7 @@
-import EventEmitter from "node:events";
 import { randomUUID } from "node:crypto";
+import EventEmitter from "node:events";
 import type { MuseHubClient } from "./hub-client";
-import type {
-	SessionManagerConfig,
-	SessionState,
-	SessionStatus,
-	SessionStepDefinition,
-	SessionStepState,
-} from "./types";
+import type { SessionState, SessionStatus, SessionStepDefinition, SessionStepState } from "./types";
 
 export interface CreateSessionOptions {
 	name: string;
@@ -90,6 +84,7 @@ export class SessionManager extends EventEmitter {
 				session.currentStepIndex = i;
 				const currentDef = defs[i];
 				const currentStep = session.steps[i];
+				if (!currentDef || !currentStep) continue;
 
 				currentStep.status = "running";
 				currentStep.startedAt = Date.now();
@@ -188,7 +183,11 @@ export class SessionManager extends EventEmitter {
 		const session = this.sessions.get(sessionId);
 		if (!session) return false;
 
-		if (session.status === "completed" || session.status === "failed" || session.status === "cancelled") {
+		if (
+			session.status === "completed" ||
+			session.status === "failed" ||
+			session.status === "cancelled"
+		) {
 			return false;
 		}
 
@@ -232,9 +231,11 @@ export class SessionManager extends EventEmitter {
 		let accumulated = 0;
 
 		for (let i = 0; i < session.steps.length; i++) {
+			const step = session.steps[i];
+			if (!step) continue;
 			const weight = defs[i]?.weight || 1;
 			totalWeight += weight;
-			const stepProgress = session.steps[i].progress;
+			const stepProgress = step.progress;
 			accumulated += (stepProgress / 100) * weight;
 		}
 

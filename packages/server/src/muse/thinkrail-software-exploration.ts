@@ -223,9 +223,9 @@ export class ThinkRailExplorationAdapter {
 	}
 
 	public async discover(params?: {
-		parentRef?: string;
-		query?: string;
-		cursor?: string;
+		parentRef?: string | undefined;
+		query?: string | undefined;
+		cursor?: string | undefined;
 	}): Promise<ExplorationEnvelope> {
 		const parentRef = params?.parentRef?.trim() || "thinkrail:root";
 		const observedAt = new Date().toISOString();
@@ -313,8 +313,7 @@ export class ThinkRailExplorationAdapter {
 				const filtered = query
 					? sessions.filter(
 							(s) =>
-								s.name.toLowerCase().includes(query) ||
-								s.projectName.toLowerCase().includes(query),
+								s.name.toLowerCase().includes(query) || s.projectName.toLowerCase().includes(query),
 						)
 					: sessions;
 
@@ -370,7 +369,7 @@ export class ThinkRailExplorationAdapter {
 
 	public async read(params: {
 		ref: string;
-		arguments?: Record<string, unknown>;
+		arguments?: Record<string, unknown> | undefined;
 	}): Promise<ExplorationEnvelope> {
 		const { ref, arguments: args } = params;
 		const observedAt = new Date().toISOString();

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { bootHost } from "../host/boot";
 import { MuseCompanion, startMuseCompanion } from "./companion";
+import type { AppManifest } from "./types";
 
 describe("MuseCompanion & Server Boot Integration", () => {
 	let cleanup: (() => Promise<void>) | null = null;
@@ -32,14 +33,14 @@ describe("MuseCompanion & Server Boot Integration", () => {
 	});
 
 	it("registers tools and exploration endpoints when Hub server is online", async () => {
-		let registeredManifest: Record<string, unknown> | null = null;
+		let registeredManifest: AppManifest | null = null;
 		const hubServer = Bun.serve({
 			port: 0,
 			fetch(req) {
 				const url = new URL(req.url);
 				if (url.pathname === "/api/v1/register" && req.method === "POST") {
 					return req.json().then((body) => {
-						registeredManifest = body as Record<string, unknown>;
+						registeredManifest = body as AppManifest;
 						return new Response(
 							JSON.stringify({
 								ok: true,
@@ -85,11 +86,12 @@ describe("MuseCompanion & Server Boot Integration", () => {
 			await new Promise((r) => setTimeout(r, 50));
 		}
 
-		expect(registeredManifest).not.toBeNull();
-		expect(registeredManifest?.appId).toBe("thinkrail.session-manager");
-		expect(registeredManifest?.exploration).toBeDefined();
+		const manifest = registeredManifest as AppManifest | null;
+		expect(manifest).not.toBeNull();
+		expect(manifest?.appId).toBe("thinkrail.session-manager");
+		expect(manifest?.exploration).toBeDefined();
 
-		const tools = (registeredManifest?.tools as Array<{ toolId: string }>) || [];
+		const tools = manifest?.tools || [];
 		const toolIds = tools.map((t) => t.toolId);
 		expect(toolIds).toContain("software_overview");
 		expect(toolIds).toContain("software_discover");

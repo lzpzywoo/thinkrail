@@ -39,9 +39,9 @@ export interface RealSession {
 }
 
 export interface SessionQuery {
-	status?: SessionFilter;
-	limit?: number;
-	sessionId?: string;
+	status?: SessionFilter | undefined;
+	limit?: number | undefined;
+	sessionId?: string | undefined;
 }
 
 export interface RealProject {
@@ -169,21 +169,29 @@ class ThinkRailConnection {
 }
 
 export class ThinkRailSessionReader implements RealSessionSource, RealProjectSource {
+	private readonly wsUrl: string;
+	private readonly connectTimeoutMs: number;
+	private readonly sessionScanTimeoutMs: number;
+
 	constructor(
-		private readonly wsUrl: string = DEFAULT_THINKRAIL_WS_URL,
-		private readonly connectTimeoutMs = 5000,
-		private readonly sessionScanTimeoutMs = 30000,
-	) {}
+		wsUrl: string = DEFAULT_THINKRAIL_WS_URL,
+		connectTimeoutMs = 5000,
+		sessionScanTimeoutMs = 30000,
+	) {
+		this.wsUrl = wsUrl;
+		this.connectTimeoutMs = connectTimeoutMs;
+		this.sessionScanTimeoutMs = sessionScanTimeoutMs;
+	}
 
 	async listProjects(): Promise<{ total: number; projects: RealProject[] }> {
 		const conn = new ThinkRailConnection(this.wsUrl, this.connectTimeoutMs);
 		try {
 			await conn.ready;
 			const projectList = await conn.request("project.list", {});
-			const projects = projectList.projects.map((p) => ({
-				projectId: p.projectId,
+			const projects: RealProject[] = projectList.map((p) => ({
+				projectId: p.id,
 				name: p.name,
-				closed: p.closed,
+				closed: Boolean(p.closed),
 				lastOpened: p.lastOpened,
 			}));
 			return { total: projects.length, projects };
@@ -201,30 +209,24 @@ export class ThinkRailSessionReader implements RealSessionSource, RealProjectSou
 				conn.request("session.stateList", {}, this.sessionScanTimeoutMs),
 			]);
 
-			const projectMap = new Map(projectList.projects.map((p) => [p.projectId, p.name]));
+			const projectMap = new Map(projectList.map((p) => [p.id, p.name]));
 			const workspaceMap = new Map<
 				string,
 				{
 					projectId: string;
 					name: string;
 					lastActiveAt: number;
-					sessions: { id: string; name: string }[];
 				}
 			>();
 			const workspaces = await Promise.all(
-				projectList.projects.map((p) =>
-					conn.request("workspace.list", { projectId: p.projectId }).catch(() => ({
-						workspaces: [],
-					})),
-				),
+				projectList.map((p) => conn.request("workspace.list", { projectId: p.id }).catch(() => [])),
 			);
 			for (const group of workspaces) {
-				for (const ws of group.workspaces) {
-					workspaceMap.set(ws.workspaceId, {
+				for (const ws of group) {
+					workspaceMap.set(ws.id, {
 						projectId: ws.projectId,
 						name: ws.name,
-						lastActiveAt: ws.lastActiveAt,
-						sessions: ws.sessions,
+						lastActiveAt: ws.lastActiveAt ?? 0,
 					});
 				}
 			}
@@ -235,9 +237,6 @@ export class ThinkRailSessionReader implements RealSessionSource, RealProjectSou
 				filteredRecords = sessionRecords.filter((r) => {
 					if (r.sessionId === normalizedQuerySession) return true;
 					if (r.title && r.title.trim() === normalizedQuerySession) return true;
-					const wsInfo = workspaceMap.get(r.workspaceId);
-					const wsSession = wsInfo?.sessions.find((s) => s.id === r.sessionId);
-					if (wsSession && wsSession.name.trim() === normalizedQuerySession) return true;
 					return false;
 				});
 
@@ -246,8 +245,10 @@ export class ThinkRailSessionReader implements RealSessionSource, RealProjectSou
 						([, ws]) => ws.name.trim() === normalizedQuerySession,
 					);
 					if (matchingWorkspaces.length === 1) {
-						const wsId = matchingWorkspaces[0][0];
-						filteredRecords = sessionRecords.filter((r) => r.workspaceId === wsId);
+						const wsId = matchingWorkspaces[0]?.[0];
+						if (wsId) {
+							filteredRecords = sessionRecords.filter((r) => r.workspaceId === wsId);
+						}
 					} else if (matchingWorkspaces.length > 1) {
 						throw new Error(`存在多个同名工作区 "${normalizedQuerySession}"，请使用具体会话ID`);
 					}
@@ -262,21 +263,23 @@ export class ThinkRailSessionReader implements RealSessionSource, RealProjectSou
 					projectMap.get(record.projectId) ||
 					record.projectId;
 				const workspaceName = wsInfo ? wsInfo.name : record.workspaceId;
-				const sessionName =
-					record.title || wsInfo?.sessions.find((s) => s.id === record.sessionId)?.name || record.sessionId;
+				const sessionName = record.title || record.sessionId;
 
 				const status = this.classifyStatus(record.state);
 
-				let plan: TodoPlan = { loose: [], groups: [] };
+				let plan: TodoPlan = { todos: [], groups: [] };
 				try {
-					plan = await conn.request("todo.list", { sessionId: record.sessionId });
+					plan = await conn.request("todo.list", {
+						workspaceId: record.workspaceId,
+						sessionId: record.sessionId,
+					});
 				} catch {
 					// Fallback to empty plan if todo read fails
 				}
 
 				const planProgress = this.calculatePlan(plan);
 				const tasks = [
-					...plan.loose.map((t) => ({ id: t.id, title: t.title, status: t.status })),
+					...plan.todos.map((t) => ({ id: t.id, title: t.title, status: t.status })),
 					...plan.groups.flatMap((g) =>
 						g.todos.map((t) => ({ id: t.id, title: t.title, status: t.status })),
 					),
@@ -297,10 +300,7 @@ export class ThinkRailSessionReader implements RealSessionSource, RealProjectSou
 						runId: record.state.runId,
 						needsInput: record.state.needsInput
 							? {
-									kind:
-										record.state.needsInput.type === "interactive-tool"
-											? "tool-response"
-											: "dialog",
+									kind: record.state.needsInput.kind,
 								}
 							: null,
 						completion: record.state.completion,
@@ -318,9 +318,7 @@ export class ThinkRailSessionReader implements RealSessionSource, RealProjectSou
 			let finalSessions = built;
 			const filter = query?.status || "all";
 			if (filter === "active") {
-				finalSessions = built.filter(
-					(s) => s.status === "running" || s.status === "needs_input",
-				);
+				finalSessions = built.filter((s) => s.status === "running" || s.status === "needs_input");
 			} else if (filter === "recent") {
 				finalSessions = [...built].sort((a, b) => {
 					const aTime = workspaceMap.get(a.workspaceId)?.lastActiveAt || 0;
@@ -344,7 +342,7 @@ export class ThinkRailSessionReader implements RealSessionSource, RealProjectSou
 		if (state.execution === "running" || state.backgroundWork) return "running";
 		if (state.completion) {
 			const outcome = state.completion.outcome;
-			if (outcome === "success") return "completed";
+			if (outcome === "succeeded") return "completed";
 			if (outcome === "failed") return "failed";
 			if (outcome === "cancelled") return "cancelled";
 			if (outcome === "interrupted") return "interrupted";
@@ -357,7 +355,7 @@ export class ThinkRailSessionReader implements RealSessionSource, RealProjectSou
 		total: number;
 		percentage: number | null;
 	} {
-		const allItems = [...plan.loose, ...plan.groups.flatMap((g) => g.todos)];
+		const allItems = [...plan.todos, ...plan.groups.flatMap((g) => g.todos)];
 		const total = allItems.length;
 		if (total === 0) return { done: 0, total: 0, percentage: null };
 		const done = allItems.filter((i) => i.status === "done").length;

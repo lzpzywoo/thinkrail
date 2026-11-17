@@ -13,8 +13,8 @@ export interface ToolDefinition {
 	category: ToolCategory;
 	riskLevel: RiskLevel;
 	inputSchema: Record<string, unknown>;
-	outputSchema?: Record<string, unknown>;
-	requiresApproval?: boolean;
+	outputSchema?: Record<string, unknown> | undefined;
+	requiresApproval?: boolean | undefined;
 }
 
 export interface SoftwareExplorationDescriptor {
@@ -30,10 +30,10 @@ export interface AppManifest {
 	version: string;
 	description: string;
 	secret: string;
-	icon?: string;
+	icon?: string | undefined;
 	tools: ToolDefinition[];
-	keywords?: string[];
-	exploration?: SoftwareExplorationDescriptor;
+	keywords?: string[] | undefined;
+	exploration?: SoftwareExplorationDescriptor | undefined;
 }
 
 // ---------------- Software Understanding & Exploration (muse-software/1) ----------------
@@ -52,8 +52,8 @@ export interface ExplorationReference {
 	ref: string;
 	title: string;
 	kind: ExplorationRefKind;
-	description?: string;
-	inputSchema?: Record<string, unknown>;
+	description?: string | undefined;
+	inputSchema?: Record<string, unknown> | undefined;
 }
 
 export interface ExplorationEnvelope<T = unknown> {
@@ -62,27 +62,31 @@ export interface ExplorationEnvelope<T = unknown> {
 	status: ExplorationStatus;
 	source: ExplorationSource;
 	observedAt: string;
-	data?: T;
-	references?: ExplorationReference[];
-	nextCursor?: string | null;
+	data?: T | undefined;
+	references?: ExplorationReference[] | undefined;
+	nextCursor?: string | null | undefined;
 }
 
 export interface HubRegisterResponse {
 	ok: boolean;
-	data?: {
-		sessionToken: string;
-		hubVersion: number;
-		heartbeatTimeoutMs: number;
-	};
-	error?: string;
+	data?:
+		| {
+				sessionToken: string;
+				hubVersion: number;
+				heartbeatTimeoutMs: number;
+		  }
+		| undefined;
+	error?: string | undefined;
 }
 
 export interface HubHeartbeatResponse {
 	ok: boolean;
-	data?: {
-		online: boolean;
-	};
-	error?: string;
+	data?:
+		| {
+				online: boolean;
+		  }
+		| undefined;
+	error?: string | undefined;
 }
 
 // ---------------- WebSocket Protocol Messages ----------------
@@ -103,20 +107,24 @@ export interface WsTaskDispatchedMessage {
 export interface WsTaskCancelledMessage {
 	taskId: string;
 	type: "task.cancelled";
-	timestamp?: number;
-	payload?: {
-		reason?: string;
-	};
+	timestamp?: number | undefined;
+	payload?:
+		| {
+				reason?: string | undefined;
+		  }
+		| undefined;
 }
 
 export interface WsTaskApprovalRequiredMessage {
 	taskId: string;
 	type: "task.approval_required";
 	timestamp: number;
-	payload?: {
-		toolId: string;
-		riskLevel: RiskLevel;
-	};
+	payload?:
+		| {
+				toolId: string;
+				riskLevel: RiskLevel;
+		  }
+		| undefined;
 }
 
 export type IncomingHubMessage =
@@ -130,9 +138,9 @@ export interface WsTaskProgressMessage {
 	payload: {
 		percentage: number;
 		message: string;
-		currentStep?: string;
-		stepIndex?: number;
-		totalSteps?: number;
+		currentStep?: string | undefined;
+		stepIndex?: number | undefined;
+		totalSteps?: number | undefined;
 	};
 }
 
@@ -149,7 +157,7 @@ export interface WsTaskFailedMessage {
 	taskId: string;
 	payload: {
 		error: string;
-		details?: unknown;
+		details?: unknown | undefined;
 	};
 }
 
@@ -158,7 +166,7 @@ export interface WsProactiveEventMessage {
 	payload: {
 		type: "task.completed" | "task.progress" | "notification" | "alert";
 		message: string;
-		metadata?: Record<string, unknown>;
+		metadata?: Record<string, unknown> | undefined;
 	};
 }
 
@@ -182,8 +190,8 @@ export interface SessionStepContext {
 export interface SessionStepDefinition {
 	id: string;
 	title: string;
-	description?: string;
-	weight?: number;
+	description?: string | undefined;
+	weight?: number | undefined;
 	execute: (ctx: SessionStepContext) => Promise<unknown>;
 }
 
@@ -192,11 +200,11 @@ export interface SessionStepState {
 	title: string;
 	status: StepStatus;
 	progress: number;
-	message?: string;
-	startedAt?: number;
-	completedAt?: number;
-	result?: unknown;
-	error?: string;
+	message?: string | undefined;
+	startedAt?: number | undefined;
+	completedAt?: number | undefined;
+	result?: unknown | undefined;
+	error?: string | undefined;
 }
 
 export interface SessionState {
@@ -208,27 +216,27 @@ export interface SessionState {
 	totalSteps: number;
 	steps: SessionStepState[];
 	parameters: Record<string, unknown>;
-	result?: unknown;
-	error?: string;
+	result?: unknown | undefined;
+	error?: string | undefined;
 	createdAt: number;
 	updatedAt: number;
-	completedAt?: number;
-	associatedTaskId?: string;
+	completedAt?: number | undefined;
+	associatedTaskId?: string | undefined;
 }
 
 export interface MuseCompanionConfig {
 	thinkrailWsUrl: string;
-	hubHttpUrl?: string;
-	hubWsUrl?: string;
-	secret?: string;
-	appId?: string;
-	appName?: string;
-	appVersion?: string;
-	appDescription?: string;
-	keywords?: string[];
-	thinkrailQueryTimeoutMs?: number;
-	observationIntervalMs?: number;
-	heartbeatIntervalMs?: number;
-	reconnectIntervalMs?: number;
-	exploration?: SoftwareExplorationDescriptor;
+	hubHttpUrl?: string | undefined;
+	hubWsUrl?: string | undefined;
+	secret?: string | undefined;
+	appId?: string | undefined;
+	appName?: string | undefined;
+	appVersion?: string | undefined;
+	appDescription?: string | undefined;
+	keywords?: string[] | undefined;
+	thinkrailQueryTimeoutMs?: number | undefined;
+	observationIntervalMs?: number | undefined;
+	heartbeatIntervalMs?: number | undefined;
+	reconnectIntervalMs?: number | undefined;
+	exploration?: SoftwareExplorationDescriptor | undefined;
 }

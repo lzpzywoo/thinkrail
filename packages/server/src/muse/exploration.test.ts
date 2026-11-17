@@ -7,6 +7,7 @@ import type {
 	RealProjectSource,
 	RealSession,
 	RealSessionSource,
+	SessionQuery,
 } from "./thinkrail-reader";
 import {
 	createThinkRailExploration,
@@ -59,11 +60,7 @@ class MockDataSource implements RealSessionSource, RealProjectSource {
 		return { total: this.projects.length, projects: this.projects };
 	}
 
-	async list(query?: {
-		status?: string;
-		limit?: number;
-		sessionId?: string;
-	}): Promise<{ total: number; sessions: RealSession[] }> {
+	async list(query?: SessionQuery): Promise<{ total: number; sessions: RealSession[] }> {
 		if (this.failNext) throw new Error("ThinkRail RPC timeout");
 		let list = this.sessions;
 		if (query?.sessionId) {

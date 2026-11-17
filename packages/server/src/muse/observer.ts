@@ -9,13 +9,22 @@ export class ThinkRailObserver {
 	private readonly known = new Map<string, string>();
 	private polling = false;
 	private baselined = false;
+	private readonly reader: RealSessionSource;
+	private readonly hubClient: MuseHubClient;
+	private readonly intervalMs: number;
+	private readonly onError: ((error: unknown) => void) | undefined;
 
 	constructor(
-		private readonly reader: RealSessionSource,
-		private readonly hubClient: MuseHubClient,
-		private readonly intervalMs = 5000,
-		private readonly onError?: (error: unknown) => void,
-	) {}
+		reader: RealSessionSource,
+		hubClient: MuseHubClient,
+		intervalMs = 5000,
+		onError?: ((error: unknown) => void) | undefined,
+	) {
+		this.reader = reader;
+		this.hubClient = hubClient;
+		this.intervalMs = intervalMs;
+		this.onError = onError;
+	}
 
 	start(): void {
 		if (this.timer) return;

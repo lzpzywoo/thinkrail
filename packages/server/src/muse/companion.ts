@@ -14,7 +14,6 @@ import type { MuseCompanionConfig } from "./types";
 const log = logger("muse");
 
 export class MuseCompanion {
-	private readonly config: MuseCompanionConfig;
 	readonly hubClient: MuseHubClient;
 	readonly sessionManager: SessionManager;
 	readonly reader: ThinkRailSessionReader;
@@ -22,10 +21,9 @@ export class MuseCompanion {
 	readonly observer: ThinkRailObserver;
 	private retryTimer: ReturnType<typeof setTimeout> | null = null;
 	private isRunning = false;
-	private retryDelayMs = 15000;
+	private readonly retryDelayMs = 15000;
 
 	constructor(config: MuseCompanionConfig) {
-		this.config = config;
 		const exploration = config.exploration ?? DEFAULT_EXPLORATION_DESCRIPTOR;
 		this.hubClient = new MuseHubClient({
 			...config,
@@ -38,7 +36,12 @@ export class MuseCompanion {
 			config.thinkrailQueryTimeoutMs,
 		);
 		const { adapter: explorationAdapter } = createThinkRailExploration(this.reader, exploration);
-		this.router = new ToolRouter(this.sessionManager, this.hubClient, this.reader, explorationAdapter);
+		this.router = new ToolRouter(
+			this.sessionManager,
+			this.hubClient,
+			this.reader,
+			explorationAdapter,
+		);
 		this.observer = new ThinkRailObserver(
 			this.reader,
 			this.hubClient,

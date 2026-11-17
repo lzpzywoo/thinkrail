@@ -6,6 +6,7 @@ import type {
 	HubRegisterResponse,
 	IncomingHubMessage,
 	MuseCompanionConfig,
+	SoftwareExplorationDescriptor,
 	ToolDefinition,
 	WsProactiveEventMessage,
 	WsTaskCancelledMessage,
@@ -17,13 +18,22 @@ import type {
 
 const log = logger("muse");
 
+interface ResolvedHubClientConfig {
+	hubHttpUrl: string;
+	hubWsUrl: string;
+	appId: string;
+	appName: string;
+	appVersion: string;
+	appDescription: string;
+	secret: string;
+	keywords: string[];
+	heartbeatIntervalMs: number;
+	reconnectIntervalMs: number;
+	exploration?: SoftwareExplorationDescriptor | undefined;
+}
+
 export class MuseHubClient extends EventEmitter {
-	private readonly config: Required<
-		Omit<
-			MuseCompanionConfig,
-			"thinkrailWsUrl" | "thinkrailQueryTimeoutMs" | "observationIntervalMs" | "exploration"
-		>
-	> & { exploration?: MuseCompanionConfig["exploration"] };
+	private readonly config: ResolvedHubClientConfig;
 	private sessionToken: string | null = null;
 	private ws: WebSocket | null = null;
 	private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -181,15 +191,21 @@ export class MuseHubClient extends EventEmitter {
 		payload: {
 			percentage: number;
 			message: string;
-			currentStep?: string;
-			stepIndex?: number;
-			totalSteps?: number;
+			currentStep?: string | undefined;
+			stepIndex?: number | undefined;
+			totalSteps?: number | undefined;
 		},
 	): void {
 		const msg: WsTaskProgressMessage = {
 			type: "task.progress",
 			taskId,
-			payload,
+			payload: {
+				percentage: payload.percentage,
+				message: payload.message,
+				...(payload.currentStep !== undefined ? { currentStep: payload.currentStep } : {}),
+				...(payload.stepIndex !== undefined ? { stepIndex: payload.stepIndex } : {}),
+				...(payload.totalSteps !== undefined ? { totalSteps: payload.totalSteps } : {}),
+			},
 		};
 		this.sendWsMessage(msg);
 	}
@@ -207,7 +223,10 @@ export class MuseHubClient extends EventEmitter {
 		const msg: WsTaskFailedMessage = {
 			type: "task.failed",
 			taskId,
-			payload: { error, details },
+			payload: {
+				error,
+				...(details !== undefined ? { details } : {}),
+			},
 		};
 		this.sendWsMessage(msg);
 	}
@@ -215,11 +234,15 @@ export class MuseHubClient extends EventEmitter {
 	public sendEvent(
 		type: "task.completed" | "task.progress" | "notification" | "alert",
 		message: string,
-		metadata?: Record<string, unknown>,
+		metadata?: Record<string, unknown> | undefined,
 	): void {
 		const msg: WsProactiveEventMessage = {
 			type: "event",
-			payload: { type, message, metadata },
+			payload: {
+				type,
+				message,
+				...(metadata !== undefined ? { metadata } : {}),
+			},
 		};
 		this.sendWsMessage(msg);
 	}

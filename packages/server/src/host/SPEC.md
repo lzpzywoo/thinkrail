@@ -248,7 +248,10 @@ channel fan-out, and the process-boot wrapper both launchers share.
   `resolveShellEnv: true` (started before `initLogging`), apply the stored host environment
   (`applyHostEnvironment`, before any `getAgentDir()` reader), pre-warm the same Central watcher/runtime
   initialization before choosing the serving port, await `createServer` (which idempotently enforces
-  runtime bootstrap for low-level embedders), and write the `listening on` info line (see
+  runtime bootstrap for low-level embedders), launch the in-process Muse companion daemon
+  ([[submodule-server-muse]]) when `enableMuseHub` is active (defaulting to true outside `NODE_ENV=test`
+  unless disabled by `THINKRAIL_MUSE_HUB=false/0`) with its stop wired to `server.stop()` and graceful
+  shutdown, and write the `listening on` info line (see
   `submodule-server-log`); `reportDesktopError(error, scope)` is the desktop launcher's handled-error door
   into analytics (source `desktop`). Its
   SIGINT/SIGTERM handlers await that same shutdown before process exit. Settling aborts streaming sessions

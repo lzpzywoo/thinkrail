@@ -5,8 +5,8 @@ import { reportError } from "../analytics";
 import { initializeJbcentralRuntime } from "../auth";
 import { applyHostEnvironment } from "../environment";
 import { initLogging, logger } from "../log";
-import { installCrashLog } from "./crashLog";
 import { type MuseCompanion, startMuseCompanion } from "../muse";
+import { installCrashLog } from "./crashLog";
 import { type CreateServerOptions, createServer, type RunningServer } from "./server";
 import { createSourceRestart, isSourceWatchMode } from "./sourceRestart";
 
@@ -153,7 +153,12 @@ export async function bootHost(options: BootHostOptions): Promise<BootedHost> {
 		restart = createSourceRestart({ shutdown: () => server.shutdown(), port: server.port });
 	}
 	log.info(`listening on port ${server.port}`);
-	return { server, port: server.port, requested, ...(companion ? { museCompanion: companion } : {}) };
+	return {
+		server,
+		port: server.port,
+		requested,
+		...(companion ? { museCompanion: companion } : {}),
+	};
 }
 
 export function reportDesktopError(error: unknown, scope: string): void {

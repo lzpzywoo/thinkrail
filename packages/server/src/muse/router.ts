@@ -6,9 +6,7 @@ import {
 	type SessionFilter,
 	ThinkRailSessionReader,
 } from "./thinkrail-reader";
-import {
-	ThinkRailExplorationAdapter,
-} from "./thinkrail-software-exploration";
+import { ThinkRailExplorationAdapter } from "./thinkrail-software-exploration";
 import { buildPipelineSteps } from "./tools";
 import type { SessionStatus, WsTaskDispatchedMessage } from "./types";
 
