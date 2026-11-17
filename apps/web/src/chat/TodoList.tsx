@@ -18,6 +18,7 @@ import type { TodoGroupItem, TodoItem, TodoPlan, TodoStatus } from "@thinkrail/c
 import type { MessageKey } from "@thinkrail/locales";
 import { type Translator, useT } from "@thinkrail/locales/react";
 import { IconButton } from "@thinkrail/ui/button";
+import { isImeComposing } from "@thinkrail/ui/keyboard";
 import { cn } from "@thinkrail/ui/utils";
 import { useState } from "react";
 import { PlanStatusIcon, SectionLabel } from "./planKit";
@@ -122,13 +123,15 @@ export function TodoAddRow({
 			<Plus className="size-14 shrink-0 text-text-muted" />
 			<input
 				data-testid="todo-add-input"
+				data-focus-fallback="todos"
 				value={draft}
 				onChange={(e) => setDraft(e.target.value)}
 				onKeyDown={(e) => {
+					if (isImeComposing(e.nativeEvent)) return;
 					if (e.key === "Enter") void submit();
 				}}
 				placeholder={t("chat.todo.addPlaceholder")}
-				className="min-w-0 flex-1 bg-transparent tr-text-ui text-text-default outline-none placeholder:text-text-muted"
+				className="min-w-0 flex-1 bg-transparent tr-text-ui text-text-default focus-visible:focus-ring placeholder:text-text-muted"
 			/>
 			{onOpenPlan ? (
 				<IconButton
@@ -387,6 +390,7 @@ function TodoRow({
 		<li
 			data-testid="todo-row"
 			data-row
+			data-focus-row={todo.id}
 			data-status={todo.status}
 			data-reviewed={reviewed}
 			data-reviewing={reviewing}
@@ -440,6 +444,7 @@ function TodoRow({
 					icon={Close}
 					size="s"
 					data-testid="todo-remove"
+					data-focus-row-primary
 					label={t("chat.todo.remove")}
 					onClick={() => {
 						void onRemove(todo.id);

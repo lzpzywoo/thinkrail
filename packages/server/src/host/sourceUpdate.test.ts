@@ -136,21 +136,20 @@ describe("source update with disposable repositories", () => {
 		expect(readFileSync(join(fork, "untracked.txt"), "utf8")).toBe("keep me");
 	});
 
-	test.each([
-		"MERGE_HEAD",
-		"rebase-merge",
-		"rebase-apply",
-	])("existing %s blocks even with a clean status", async (state) => {
-		const { fork, local } = fixture();
-		const path = join(fork, ".git", state);
-		if (state === "MERGE_HEAD") writeFileSync(path, `${local}\n`);
-		else mkdirSync(path);
-		expect(git(fork, "status", "--porcelain")).toBe("");
-		await expect(checkWorkingTreeClean(fork)).rejects.toMatchObject({
-			code: "SOURCE_UPDATE_DIRTY",
-		});
-		expect(existsSync(path)).toBe(true);
-	});
+	test.each(["MERGE_HEAD", "rebase-merge", "rebase-apply"])(
+		"existing %s blocks even with a clean status",
+		async (state) => {
+			const { fork, local } = fixture();
+			const path = join(fork, ".git", state);
+			if (state === "MERGE_HEAD") writeFileSync(path, `${local}\n`);
+			else mkdirSync(path);
+			expect(git(fork, "status", "--porcelain")).toBe("");
+			await expect(checkWorkingTreeClean(fork)).rejects.toMatchObject({
+				code: "SOURCE_UPDATE_DIRTY",
+			});
+			expect(existsSync(path)).toBe(true);
+		},
+	);
 
 	test("a mismatched upstream is reported without rewriting it", async () => {
 		const { fork, upstream, options } = fixture();
@@ -195,7 +194,7 @@ describe("source update with disposable repositories", () => {
 		let startingDirectory = "";
 		const runner: GitRunner = async (_args, cwd) => {
 			startingDirectory = cwd;
-			return { launched: true, exitCode: 0, stdout: "D:\\app\n", stderr: "" };
+			return { launched: true, exitCode: 0, timedOut: false, stdout: "D:\\app\n", stderr: "" };
 		};
 		expect(await findRepoRoot(undefined, runner)).toBe("D:/app");
 		expect(resolve(startingDirectory)).toBe(resolve(import.meta.dir));
@@ -205,7 +204,13 @@ describe("source update with disposable repositories", () => {
 		const { options } = fixture();
 		const runner: GitRunner = (args, cwd) =>
 			args[0] === "fetch"
-				? Promise.resolve({ launched: true, exitCode: 1, stdout: "", stderr: "secret" })
+				? Promise.resolve({
+						launched: true,
+						exitCode: 1,
+						timedOut: false,
+						stdout: "",
+						stderr: "secret",
+					})
 				: defaultGitRunner(args, cwd);
 		await expect(
 			checkSourceUpdateAvailable({ ...options, gitRunner: runner }),

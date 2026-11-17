@@ -15,6 +15,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@thinkrail/ui/dialog";
+import { isImeComposing } from "@thinkrail/ui/keyboard";
 import { cn } from "@thinkrail/ui/utils";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { copyText } from "@/lib";
@@ -29,7 +30,7 @@ function DeviceLink({ href, children }: { href: string; children?: ReactNode }) 
 			target="_blank"
 			rel="noopener noreferrer"
 			data-testid="login-device-url"
-			className="inline-flex items-center gap-2 break-all rounded-sm text-primary underline underline-offset-2 outline-none hover:opacity-80 focus-visible:ring-2 focus-visible:ring-primary"
+			className="inline-flex items-center gap-2 break-all rounded-sm text-primary underline underline-offset-2 hover:opacity-80 focus-visible:focus-ring"
 		>
 			{children}
 			<ExternalLink className="size-12 shrink-0" />
@@ -112,7 +113,6 @@ export function LoginDialog({
 				data-testid="login-dialog"
 				data-provider={state.providerId}
 				data-status={state.status}
-				className="max-h-[85vh] overflow-y-auto"
 			>
 				<DialogHeader>
 					<DialogTitle>
@@ -131,7 +131,7 @@ export function LoginDialog({
 
 				{state.status === "success" ? (
 					<p
-						className="flex items-center gap-8 text-feedback-success tr-text-ui"
+						className="flex items-center gap-8 wrap-anywhere text-feedback-success tr-text-ui"
 						data-testid="login-success"
 					>
 						<Check className="size-16 shrink-0" />
@@ -148,7 +148,7 @@ export function LoginDialog({
 				) : (
 					<div className="flex flex-col gap-12">
 						{state.url ? (
-							<div className="flex gap-8">
+							<div className="flex flex-wrap gap-8">
 								<a
 									href={state.url}
 									target="_blank"
@@ -185,7 +185,7 @@ export function LoginDialog({
 									readOnly
 									value={state.url}
 									data-testid="login-url-field"
-									className="min-w-0 rounded-sm border border-control-border-default bg-control-bg px-8 py-4 tr-code-text text-text-default outline-none focus-visible:border-control-border-active"
+									className="min-w-0 rounded-sm border border-control-border-default bg-control-bg px-8 py-4 tr-code-text text-text-default focus-visible:border-control-border-active focus-visible:focus-ring"
 								/>
 							</div>
 						) : null}
@@ -215,7 +215,7 @@ export function LoginDialog({
 										{loginSelectMessage(state.input.message)}
 									</p>
 								) : null}
-								<div className="grid gap-8 sm:grid-cols-2">
+								<div className="grid grid-cols-1 gap-8 sm:grid-cols-2">
 									{state.input.options.map((option) => {
 										const { title, detail, recommended } = loginOptionParts(option.label, t);
 										return (
@@ -226,7 +226,7 @@ export function LoginDialog({
 												data-option={option.id}
 												onClick={() => onReply(option.id)}
 												className={cn(
-													"flex w-full items-start rounded-sm border bg-clip-padding bg-container-workspace-bg p-12 text-left outline-none transition-colors hover:bg-control-bg-hovered focus-visible:ring-2 focus-visible:ring-primary",
+													"flex w-full items-start rounded-sm border bg-clip-padding bg-container-workspace-bg p-12 text-left transition-colors hover:bg-control-bg-hovered focus-visible:focus-ring",
 													recommended ? "border-primary-muted" : "border-border-default",
 												)}
 											>
@@ -250,7 +250,7 @@ export function LoginDialog({
 								type="button"
 								data-testid="login-paste-toggle"
 								onClick={() => setPasteOpen(true)}
-								className="self-start rounded-sm text-text-muted tr-text-metadata underline underline-offset-2 outline-none hover:text-text-default focus-visible:ring-2 focus-visible:ring-primary"
+								className="self-start rounded-sm text-text-muted tr-text-metadata underline underline-offset-2 hover:text-text-default focus-visible:focus-ring"
 							>
 								{t("auth.login.pasteToggle")}
 							</button>
@@ -274,19 +274,20 @@ export function LoginDialog({
 									type={state.input.secret ? "password" : "text"}
 									placeholder={state.input.placeholder ?? ""}
 									onKeyDown={(e) => {
+										if (isImeComposing(e.nativeEvent)) return;
 										if (e.key === "Enter") {
 											e.preventDefault();
 											submitPrompt();
 										}
 									}}
-									className="min-w-0 rounded-sm border border-control-border-default bg-control-bg px-8 py-4 tr-text-ui text-text-default outline-none placeholder:text-text-muted focus-visible:border-control-border-active"
+									className="min-w-0 rounded-sm border border-control-border-default bg-control-bg px-8 py-4 tr-text-ui text-text-default placeholder:text-text-muted focus-visible:border-control-border-active focus-visible:focus-ring"
 								/>
 							</div>
 						) : null}
 
 						{progress ? (
 							<p
-								className="flex items-center gap-8 text-text-muted tr-text-ui"
+								className="flex items-center gap-8 wrap-anywhere text-text-muted tr-text-ui"
 								data-testid="login-progress"
 							>
 								<Loader2 className="size-16 shrink-0 animate-spin" />

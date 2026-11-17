@@ -9,14 +9,6 @@ export type SlashCommandItem = Omit<SlashCommandInfo, "source"> & {
 };
 
 const MAX_MATCHES = 8;
-const IME_SENTINEL_KEYCODE = 229;
-
-export function isPromptKeyEventComposing(event: {
-	isComposing: boolean;
-	keyCode: number;
-}): boolean {
-	return event.isComposing || event.keyCode === IME_SENTINEL_KEYCODE;
-}
 
 export async function slashCommandCatalogOrEmpty(
 	load: () => Promise<SlashCommandInfo[]>,
@@ -194,7 +186,7 @@ export function SlashCommandMenu<T extends SlashCommandItem>({
 					data-source={command.source}
 					onClick={() => onSelect(command)}
 					className={cn(
-						"flex w-full items-center gap-8 rounded-sm px-8 py-4 text-left tr-text-ui",
+						"flex w-full items-center gap-8 rounded-sm px-8 py-4 text-left tr-text-ui focus-visible:focus-ring-inset",
 						index === activeIndex ? "bg-control-bg-selected text-text-default" : "text-text-muted",
 					)}
 				>

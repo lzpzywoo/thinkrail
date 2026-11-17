@@ -35,7 +35,7 @@ The UI calls the packaged `canary` identity **nightly** without changing feed se
 The optional host snapshot arrives through the versioned wire and is synchronized in the store. It remains
 visible through a temporary disconnect and the next welcome replaces or clears it. Current hosts expose
 idle/available/running/succeeded/failed state, an optional **Check for Updates** action, and one **Run Update** action;
-the actions send parameterless version-gated requests (`host.checkUpdates` at v103, `host.update` at v70).
+the actions send parameterless version-gated requests (`host.checkUpdates` at v125, `host.update` at v70).
 Binary-channel success still asks for a manual host restart. Older hosts retain fixed command guidance.
 Both host actions are unavailable after success.
 No command text or arbitrary diagnostics cross the wire.

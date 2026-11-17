@@ -2,6 +2,10 @@ import type { MuseHubClient } from "./hub-client";
 import type { RealSession, RealSessionSource } from "./thinkrail-reader";
 
 export class ThinkRailObserver {
+	private readonly reader: RealSessionSource;
+	private readonly hub: MuseHubClient;
+	private readonly intervalMs: number;
+	private readonly reportError: (error: unknown) => void;
 	private previous: Map<string, string> | undefined;
 	private timer: ReturnType<typeof setTimeout> | undefined;
 	private running = false;
@@ -9,11 +13,15 @@ export class ThinkRailObserver {
 	private generation = 0;
 
 	constructor(
-		private reader: RealSessionSource,
-		private hub: MuseHubClient,
-		private intervalMs = 5000,
-		private reportError: (error: unknown) => void = () => {},
+		reader: RealSessionSource,
+		hub: MuseHubClient,
+		intervalMs = 5000,
+		reportError: (error: unknown) => void = () => {},
 	) {
+		this.reader = reader;
+		this.hub = hub;
+		this.intervalMs = intervalMs;
+		this.reportError = reportError;
 		hub.on("disconnected", () => {
 			this.generation++;
 			this.previous = undefined;

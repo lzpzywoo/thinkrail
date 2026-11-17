@@ -10,11 +10,18 @@ import { buildPipelineSteps } from "./tools";
 import type { SessionStatus, WsTaskDispatchedMessage } from "./types";
 
 export class ToolRouter {
+	private readonly sessionManager: SessionManager;
+	private readonly hubClient: MuseHubClient;
+	private readonly realSessions: RealSessionSource & RealProjectSource;
+
 	constructor(
-		private sessionManager: SessionManager,
-		private hubClient: MuseHubClient,
-		private realSessions: RealSessionSource & RealProjectSource = new ThinkRailSessionReader(),
+		sessionManager: SessionManager,
+		hubClient: MuseHubClient,
+		realSessions: RealSessionSource & RealProjectSource = new ThinkRailSessionReader(),
 	) {
+		this.sessionManager = sessionManager;
+		this.hubClient = hubClient;
+		this.realSessions = realSessions;
 		this.hubClient.on("task.dispatched", (msg: WsTaskDispatchedMessage) => {
 			this.handleTaskDispatched(msg).catch((err) => {
 				this.hubClient.sendFailed(msg.taskId, err?.message || "Error processing tool dispatch");

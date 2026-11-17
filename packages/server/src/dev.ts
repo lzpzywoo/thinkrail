@@ -1,5 +1,6 @@
 import type { Provider } from "@earendil-works/pi-ai";
 import type { OAuthCredentials, OAuthLoginCallbacks } from "@earendil-works/pi-ai/oauth";
+import { parsePort } from "@thinkrail/shared/freePort";
 import { configurePiRuntimeGenerationInitializer } from "./agent";
 import { bootHost, createSourceHostUpdate } from "./host";
 
@@ -92,9 +93,14 @@ if (process.env.THINKRAIL_E2E_FAKE_OAUTH === "1") {
 
 const host = process.env.THINKRAIL_HOST ?? "localhost";
 const staticDir = process.env.THINKRAIL_STATIC_DIR;
-const envPort = process.env.THINKRAIL_RESTART_PORT ?? process.env.THINKRAIL_PORT;
-if (envPort !== undefined && (!/^\d+$/.test(envPort) || Number(envPort) > 65535)) {
-	throw new Error("Invalid ThinkRail host port");
+const restartPort = process.env.THINKRAIL_RESTART_PORT;
+const rawPort = restartPort ?? process.env.THINKRAIL_PORT;
+const envPort = parsePort(rawPort);
+if (rawPort !== undefined && envPort === undefined) {
+	if (restartPort !== undefined) throw new Error("Invalid ThinkRail restart port");
+	console.warn(
+		`thinkrail dev: ignoring invalid THINKRAIL_PORT=${rawPort}; using a free port from 24242`,
+	);
 }
 const posthogApiKey =
 	process.env.THINKRAIL_DEV_POSTHOG === "1" ? process.env.THINKRAIL_POSTHOG_PROJECT_KEY : undefined;
@@ -105,9 +111,9 @@ if (posthogApiKey) {
 }
 
 const { port } = await bootHost({
-	port: envPort ? Number(envPort) : 24242,
+	port: envPort ?? 24242,
 	host,
-	portMode: envPort ? "exact" : "free",
+	portMode: envPort === undefined ? "free" : "exact",
 	resolveShellEnv: true,
 	...(staticDir ? { staticDir } : {}),
 	hostUpdate: process.env.THINKRAIL_SOURCE_UPDATES === "0" ? undefined : createSourceHostUpdate(),

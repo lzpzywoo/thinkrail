@@ -25,8 +25,8 @@ export interface SessionExecutionInternal {
 }
 
 export class SessionManager extends EventEmitter {
-	private sessions = new Map<string, SessionExecutionInternal>();
-	private taskIdToSessionId = new Map<string, string>();
+	private readonly sessions = new Map<string, SessionExecutionInternal>();
+	private readonly taskIdToSessionId = new Map<string, string>();
 	private hubClient?: MuseHubClient;
 
 	constructor(hubClient?: MuseHubClient) {

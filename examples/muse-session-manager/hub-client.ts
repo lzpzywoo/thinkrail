@@ -15,7 +15,7 @@ import type {
 } from "./types";
 
 export class MuseHubClient extends EventEmitter {
-	private config: Required<
+	private readonly config: Required<
 		Omit<
 			SessionManagerConfig,
 			"thinkrailWsUrl" | "thinkrailQueryTimeoutMs" | "observationIntervalMs"

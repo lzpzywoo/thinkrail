@@ -60,7 +60,7 @@ export interface RealProjectSource {
 }
 
 class ThinkRailConnection {
-	private pending = new Map<
+	private readonly pending = new Map<
 		string,
 		{
 			resolve: (value: unknown) => void;
@@ -68,14 +68,13 @@ class ThinkRailConnection {
 			timer: ReturnType<typeof setTimeout>;
 		}
 	>();
-	private socket: WebSocket;
-	private endpointLabel: string;
+	private readonly socket: WebSocket;
+	private readonly endpointLabel: string;
+	private readonly timeoutMs: number;
 	readonly ready: Promise<void>;
 
-	constructor(
-		endpoint: string,
-		private timeoutMs: number,
-	) {
+	constructor(endpoint: string, timeoutMs: number) {
+		this.timeoutMs = timeoutMs;
 		const url = new URL(endpoint);
 		url.searchParams.set("client", `muse-${randomUUID()}`);
 		url.searchParams.set("protocol", String(PROTOCOL_VERSION));
@@ -188,11 +187,19 @@ export function realStatus(state: SessionStateRecord["state"]): RealSessionStatu
 }
 
 export class ThinkRailSessionReader implements RealSessionSource, RealProjectSource {
+	private readonly endpoint: string;
+	private readonly timeoutMs: number;
+	private readonly sessionQueryTimeoutMs: number;
+
 	constructor(
-		private endpoint = DEFAULT_THINKRAIL_WS_URL,
-		private timeoutMs = 5000,
-		private sessionQueryTimeoutMs = timeoutMs * 6,
-	) {}
+		endpoint = DEFAULT_THINKRAIL_WS_URL,
+		timeoutMs = 5000,
+		sessionQueryTimeoutMs = timeoutMs * 6,
+	) {
+		this.endpoint = endpoint;
+		this.timeoutMs = timeoutMs;
+		this.sessionQueryTimeoutMs = sessionQueryTimeoutMs;
+	}
 
 	async listProjects() {
 		const connection = new ThinkRailConnection(this.endpoint, this.timeoutMs);

@@ -49,6 +49,7 @@ export const defaultGitRunner: GitRunner = (args, cwd) =>
 				resolveResult({
 					launched: !error || typeof error.code === "number",
 					exitCode: error ? (typeof error.code === "number" ? error.code : 1) : 0,
+					timedOut: error?.killed === true && error.code !== "ERR_CHILD_PROCESS_STDIO_MAXBUFFER",
 					stdout,
 					stderr,
 				}),
