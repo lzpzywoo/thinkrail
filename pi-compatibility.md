@@ -40,8 +40,9 @@ with this evidence:
   ephemeral.
 - `_isActivatedOnRegistration`, the provider-registration queues with `extensionPath`,
   `getAllRegisteredTools`, the `sk-ant-oat` predicate, `getPackageIdentity`, `clearExtensionCache`,
-  `defaultModelPerProvider`, `"pi-virtual"`, `formatSkillsForPrompt`, `findCutPoint` / `generateSummary`
-  and the single-`appendFileSync` session append are all still private and unchanged in shape.
+  `defaultModelPerProvider`, `"pi-virtual"`, and the single-`appendFileSync` session append retain their
+  documented private/internal shapes. `formatSkillsForPrompt`, `findCutPoint` and `generateSummary` are
+  public root exports; their behavior still leaves the documented skill and context-budget gaps.
   `isOfflineModeEnabled` is now exported from `core/package-manager.js` but not from the package root, so
   the port stays. `defaultModelPerProvider` moved 17 providers (Anthropic/Bedrock → Claude Opus 5.5,
   Azure → GPT-6.1 Sol, Google/Vertex → Gemini 4 Argon, …) and added `qwen-token-plan-individual-cn`; the
@@ -65,6 +66,29 @@ with this evidence:
   default `anthropic` model is now `claude-opus-5-5`. Release notes must say both and advise users to
   check their default and restored-chat model; unavailable models follow the existing selection rules in
   [[submodule-server-agent]], and the host still does not surface Pi's `modelFallbackMessage`.
+
+### Local merge recheck — upstream `10319b4a`
+
+Installed Pi 1.5.2 was rechecked on Windows/Bun 1.4.4 after the local 1.4.0 merge. Keep the upstream
+removal of `stuckEmptyDeliveries`: all three image-only delivery regressions pass. Keep the queued-image
+copy because queue getters/clearer remain text-only, and torn-write truncation because persistence
+still uses one `appendFileSync` even though Pi now restores memory/leaf after a failed append.
+
+No other removal gate is met. Installed exports/dist retain private registry activation/precedence,
+provider provenance queues, MCP lifecycle/management and loader/writer gaps, and the package,
+virtual-selection, durable-presentation and artifact seams above. `formatSkillsForPrompt`,
+`findCutPoint`, and `generateSummary` are public root exports; their unbounded behavior keeps the
+skill/context-budget adaptations applicable. Disposal still emits no shutdown, MCP clears before
+awaiting close, warming defaults to `idle`, and credential settling is per runtime.
+
+Retain the Anthropic framing patch: installed patched tests pass 6/6; reversing the exact hunks in a
+disposable module yields 3 defect failures and 3 preserved-behavior passes. Registry/queue/cache,
+shutdown, provenance/delegation, framing/default/runtime, MCP engine/sign-in and history parity probes
+pass with fake providers. `check:seams` passes. Broader Windows probes remain unqualified: symlink
+`EPERM`, POSIX mode/path assumptions, a plain-project trust expectation, two MCP disable-retry timeouts
+and three background-resource completion/teardown failures. These failures did not justify changing
+SDK adaptations or weakening assertions. Native executable qualification is reported separately by
+its artifact gates; no live provider was used for this recheck.
 
 ## Upgrade contract
 
