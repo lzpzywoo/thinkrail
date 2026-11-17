@@ -56,13 +56,13 @@ import {
 } from "./ModelEffortPicker";
 import { isModelCommand, parseModelCommand } from "./nativeCommands";
 import {
-	imagePasteDropHandlers,
 	PromptImageChips,
 	type PromptImagesOwner,
 	usePromptImages,
 } from "./promptImages";
 import { composerShiftTabOut, composerTranscriptStep } from "./transcriptNavigation";
 import type { ChatAttachment } from "./types";
+import { insertReferencesIntoDraft, useComposerDrop } from "./useComposerDrop";
 import type { ModelPreferences } from "./useModelPreferences";
 
 export type SubmitBehavior = "send" | "steer" | "followUp" | "interrupt";
@@ -172,6 +172,7 @@ function highlightTint(state: SlotHighlightState): string {
 }
 
 interface ComposerProps {
+	workspaceId?: string | undefined;
 	value: string;
 	onChange: (value: string) => void;
 	imageOwner?: PromptImagesOwner;
@@ -220,6 +221,7 @@ export interface ComposerHandle {
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
 	{
+		workspaceId,
 		value,
 		onChange,
 		imageOwner,
@@ -581,7 +583,17 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 		}
 	};
 
-	const { onPaste, onDrop } = imagePasteDropHandlers(attachedImages);
+	const { isDraggingOver, uploadingFiles, onPaste, dropHandlers } = useComposerDrop({
+		workspaceId,
+		onInsertReferences: (items) => {
+			const { nextDraft, nextCaret } = insertReferencesIntoDraft(value, caret, items);
+			replaceDraft(nextDraft, nextCaret);
+		},
+		onAddImages: attachedImages.addFiles,
+		onUploadError: (fileName) => {
+			setSubmitError(t("chat.composer.attachmentUploadFailed", { name: fileName }));
+		},
+	});
 
 	return (
 		<fieldset
@@ -589,6 +601,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 			data-expanded={expanded}
 			data-streaming={isStreaming}
 			aria-label={t("chat.composer.label")}
+			{...dropHandlers}
 			onMouseDown={(e) => {
 				if (isComposerDeadZone(e, shellRef.current)) {
 					e.preventDefault();
@@ -664,6 +677,17 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 							title={submitError}
 							label={submitError}
 						/>
+					) : uploadingFiles.length > 0 ? (
+						<FileChip
+							data-testid="composer-uploading-chip"
+							tone="default"
+							title={t("chat.composer.uploadingAttachment", {
+								name: uploadingFiles.join(", "),
+							})}
+							label={t("chat.composer.uploadingAttachment", {
+								name: uploadingFiles.join(", "),
+							})}
+						/>
 					) : null
 				}
 			/>
@@ -672,8 +696,11 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 				<div
 					ref={shellRef}
 					data-testid="chat-composer-shell"
+					data-drag-over={isDraggingOver ? true : undefined}
+					{...dropHandlers}
 					className={cn(
 						"relative grid grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[minmax(0,1fr)_auto] items-end gap-x-4 gap-y-4 overflow-hidden rounded-md border border-control-border-default bg-control-bg bg-clip-padding p-4 transition-colors focus-within:border-control-border-active has-[textarea:focus-visible]:focus-ring",
+						isDraggingOver && "border-control-border-active ring-2 ring-control-border-active/50",
 						expanded && growthLimit === "half-chat" && "max-h-[50cqh]",
 					)}
 				>
@@ -751,7 +778,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 							onClick={(e) => setCaret(e.currentTarget.selectionStart)}
 							onKeyDown={onKeyDown}
 							onPaste={onPaste}
-							onDrop={onDrop}
+							onDrop={dropHandlers.onDrop}
+							onDragOver={dropHandlers.onDragOver}
+							onDragEnter={dropHandlers.onDragEnter}
+							onDragLeave={dropHandlers.onDragLeave}
 							rows={1}
 							placeholder={
 								awaitingResponse

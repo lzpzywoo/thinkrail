@@ -1014,6 +1014,7 @@ export default function ChatView({
 				/>
 				<Composer
 					ref={composerRef}
+					workspaceId={workspaceId}
 					value={draft}
 					onChange={(v) => useAppStore.getState().setChatDraft(sessionId, v)}
 					imageOwner={imageOwner}
