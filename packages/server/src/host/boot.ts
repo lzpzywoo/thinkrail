@@ -6,6 +6,7 @@ import { initializeJbcentralRuntime } from "../auth";
 import { applyHostEnvironment } from "../environment";
 import { initLogging, logger } from "../log";
 import { installCrashLog } from "./crashLog";
+import { type MuseCompanion, startMuseCompanion } from "../muse";
 import { type CreateServerOptions, createServer, type RunningServer } from "./server";
 import { createSourceRestart, isSourceWatchMode } from "./sourceRestart";
 
@@ -20,6 +21,7 @@ export interface BootHostOptions {
 	hostUpdate?: CreateServerOptions["hostUpdate"];
 	verbose?: boolean;
 	resolveShellEnv?: boolean;
+	enableMuseHub?: boolean;
 }
 
 const log = logger("host");
@@ -28,6 +30,7 @@ export interface BootedHost {
 	readonly server: RunningServer;
 	readonly port: number;
 	readonly requested: number;
+	readonly museCompanion?: MuseCompanion;
 }
 
 function attachProcessSignals(server: RunningServer): RunningServer {
@@ -112,12 +115,45 @@ export async function bootHost(options: BootHostOptions): Promise<BootedHost> {
 		...(options.analytics ? { analytics: options.analytics } : {}),
 		...(hostUpdate ? { hostUpdate } : {}),
 	});
-	const server = attachProcessSignals(running);
+
+	let companion: MuseCompanion | undefined;
+	const shouldStartMuse =
+		options.enableMuseHub ??
+		(process.env.NODE_ENV !== "test" &&
+			process.env.THINKRAIL_MUSE_HUB !== "false" &&
+			process.env.THINKRAIL_MUSE_HUB !== "0");
+
+	if (shouldStartMuse) {
+		const hostAddr = options.host === "0.0.0.0" ? "127.0.0.1" : options.host;
+		companion = startMuseCompanion({
+			thinkrailWsUrl: `ws://${hostAddr}:${running.port}/ws`,
+			hubHttpUrl: process.env.MUSE_HUB_URL,
+			hubWsUrl: process.env.MUSE_HUB_WS_URL,
+			secret: process.env.MUSE_HUB_SECRET,
+		});
+	}
+
+	const wrappedRunning: RunningServer = {
+		get port() {
+			return running.port;
+		},
+		startAttributionClaim: () => running.startAttributionClaim(),
+		stop: () => {
+			if (companion) void companion.stop();
+			running.stop();
+		},
+		shutdown: async () => {
+			if (companion) await companion.stop();
+			await running.shutdown();
+		},
+	};
+
+	const server = attachProcessSignals(wrappedRunning);
 	if (hostUpdate?.restartRequired) {
 		restart = createSourceRestart({ shutdown: () => server.shutdown(), port: server.port });
 	}
 	log.info(`listening on port ${server.port}`);
-	return { server, port: server.port, requested };
+	return { server, port: server.port, requested, ...(companion ? { museCompanion: companion } : {}) };
 }
 
 export function reportDesktopError(error: unknown, scope: string): void {
