@@ -433,6 +433,8 @@ async function runMutedSmoke(): Promise<void> {
 	if (process.platform === "win32") verifyWindowsExecutables();
 	const isolated = join(root, "ui");
 	mkdirSync(join(isolated, "home"), { recursive: true });
+	mkdirSync(join(isolated, "data"), { recursive: true });
+	writeFileSync(join(isolated, "data", "config.json"), JSON.stringify({ locale: "en" }));
 	let ui: Awaited<ReturnType<typeof launchDesktop>> | undefined;
 	try {
 		ui = await launchDesktop(

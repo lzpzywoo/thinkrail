@@ -89,7 +89,7 @@ Windows skips it because its native caption hit already maximizes on double-clic
 Restore successor in the live webview; the launcher must record exactly one `toggleMaximize` request per
 click and publish the matching `maximized` state, proving the real bridge request leg and native state
 push rather than a fake bridge. Close is not probed: it shares the native-X `requestClose()` path, and the
-subsequent external-navigation probes need the window. Desktop-backed Playwright uses the launcher's opt-in neutral-window seam so it is the
+subsequent external-navigation probes need the window. The native UI smoke seeds English in its isolated app config because the maximize/restore probe selects English aria-labels; system-locale selection must not turn a localized button into a bridge timeout. Desktop-backed Playwright uses the launcher's opt-in neutral-window seam so it is the
 only hydrated client. The live-window ready/control seam remains in the launcher, never a runtime import
 of this package.
 
