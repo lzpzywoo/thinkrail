@@ -1046,8 +1046,11 @@ the palette ranks with — kept here so host-side search can rank with the same 
   teardown door — transcripts and folder to the Trash, `session.delete` refuses a chat) and **`inspect`**
   (`{ workspaceId }` → `ChatInspection { files, truncated }`, the confirmation's file count — `truncated`
   when the host's walk stopped at its entry or time budget, so the folder may hold more),
-  and from `CONTINUATION_PROTOCOL_VERSION` (v110) **`continue`** (`{ workspaceId, projectId }` →
-  `{ operationId }`: bind one in-memory continuation and ask the chat's agent for a summary) and
+  and from `CONTINUATION_PROTOCOL_VERSION` (v110) **`continue`** (`ChatContinueParams`:
+  `{ workspaceId, projectId }`, or from `CONTINUE_NEW_PROJECT_PROTOCOL_VERSION` (v126)
+  `{ workspaceId, newProject: ChatContinueNewProject }` to validate the source chat and create a new
+  git-backed project before starting continuation → `{ operationId }`: bind one in-memory continuation
+  and ask the chat's agent for a summary) and
   **`continuationStatus`** (`{ operationId }` → `ChatContinuation` — the host-owned phases `requested →
   summarizing → creating → started | failed | lost` with the created `workspaceId` / `sessionId` and
   `firstMessage: sent | failed` reported apart; after a restart a linked operation answers `started`

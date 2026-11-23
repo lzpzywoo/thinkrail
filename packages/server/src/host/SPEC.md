@@ -830,16 +830,20 @@ channel fan-out, and the process-boot wrapper both launchers share.
   `MCP_PROTOCOL_VERSION` therefore reaches no socket for a chat); `recentProjects` never carries the
   container. Run analytics classify `workspace_kind: "chat"`.
 - **Continue in workspace (`continuations.ts`):** one **in-memory** operation per user gesture and source
-  chat (`chat.continue { workspaceId, projectId } → { operationId }`). A gesture for the same project
+  chat (`chat.continue` with `{ workspaceId, projectId }`, or `{ workspaceId, newProject }` → `{ operationId }`). A gesture for the same open project
   joins the chat's operation while it is `requested`/`summarizing`/`creating`, and one still being
   admitted (the admission is reserved per source chat before its first await, so two windows on a chat
-  whose session is only on disk get one operation); a gesture for another project meanwhile is refused
+  whose session is only on disk get one operation); a gesture for another project (or a new-project
+  gesture while an admission/operation is in flight) meanwhile is refused
   (`CONTINUATION_IN_FLIGHT`), never silently folded into the first; after `started` or `failed` a gesture
   starts a new one. The host validates the source (a chat without a project holding a conversation — an
-  empty chat has nothing to hand over; and open, per the chat lifecycle above: `chat.continue` is a chat
+  empty chat has nothing to hand over; attachable session; and open, per the chat lifecycle above: `chat.continue` is a chat
   resource door, and `assertChatOpen` runs again after every await before the session is attached or
   asked, so a delete that began or failed meanwhile refuses with `CHAT_DELETING` /
-  `CHAT_DELETION_PENDING`) and the target (an open repository, never the container), publishes
+  `CHAT_DELETION_PENDING`) and the target (for `projectId`, an open repository, never the container; for
+  `newProject`, `createProject` runs only **after** all source-chat checks and session attachment succeed,
+  so a rejected chat leaves no folder or git repository on disk, while a newly created project stays open
+  if a later continuation step fails), publishes
   `requested`, then delivers a `continue-in-workspace-request` custom message to the source session as a
   **follow-up** (`sendHostMessageToSession` — a card in the transcript, queued behind a running turn,
   never a steer), moving to `summarizing`; the request's acceptance is awaited only for `REQUEST_ACK_MS`

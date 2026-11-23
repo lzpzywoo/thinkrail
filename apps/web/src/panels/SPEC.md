@@ -64,10 +64,15 @@ treatment.
   listings and fallbacks (`ProjectTree`, `WelcomePanel`, the dialog's project picker) read
   `selectRepoProjects`, never `s.projects`, so the container is never offered as a project.
   **Continue in workspace:** `ContinueChatDialog` (reached from the Chats row menu and the topbar chat
-  segment) picks a repository — the context repository at the moment it opens, kept while the user's pick
-  exists, so a project another window opens or reorders never changes it — and calls
-  `continueChatInWorkspace(chatId, projectId)` → `chat/continuations`' `requestContinuation`
-  (`chat.continue`), closing at once (the agent's turn runs on its own); the store's
+  segment) picks an open repository — the context repository at the moment it opens, kept while the user's pick
+  exists, so a project another window opens or reorders never changes it — or, when the host speaks
+  `CONTINUE_NEW_PROJECT_PROTOCOL_VERSION`, **Create new project…** at the end of the project dropdown
+  (the default when no repositories are open, also preserved across external project changes). Picking an
+  open repository calls `continueChatInWorkspace(chatId, projectId)` → `chat/continuations`' `requestContinuation`
+  (`chat.continue`), closing at once (the agent's turn runs on its own); picking **Create new project…**
+  expands inline Name + Location (defaulting to `~/thinkrail`, with Browse and path preview, reusing
+  `CreateProjectDialog`'s folder sanitization and path join) and awaits `continueChatInNewProject` before
+  closing so validation or project-creation errors display inline while the dialog stays open; the store's
   `initiatedContinuations` remembers the operations this client started, and `chat/continuations`
   follows them to the new chat when the host reports `started` — the initiating client alone — or
   toasts the failure. The dialog is bound to the chat that opened it: the topbar segment keys it by that
