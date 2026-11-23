@@ -1,5 +1,7 @@
 import {
+	type ChatContinueNewProject,
 	CONTINUATION_PROTOCOL_VERSION,
+	CONTINUE_NEW_PROJECT_PROTOCOL_VERSION,
 	type ThinkingLevel,
 	type WireModel,
 	type Workspace,
@@ -113,6 +115,10 @@ export function supportsChatContinuation(protocolVersion: number | null): boolea
 	return protocolVersion !== null && protocolVersion >= CONTINUATION_PROTOCOL_VERSION;
 }
 
+export function supportsContinueInNewProject(protocolVersion: number | null): boolean {
+	return protocolVersion !== null && protocolVersion >= CONTINUE_NEW_PROJECT_PROTOCOL_VERSION;
+}
+
 /** Asks the host to continue a chat in a new workspace of `projectId`; this client then follows the new chat. */
 export async function continueChatInWorkspace(
 	workspaceId: string,
@@ -124,4 +130,12 @@ export async function continueChatInWorkspace(
 		toast.error(errorText(err), t("panels.chats.continueFailed"));
 		return null;
 	}
+}
+
+/** Validates the chat, creates a new git-backed project on the host, and starts continuation into it; callers handle errors inline. */
+export function continueChatInNewProject(
+	workspaceId: string,
+	newProject: ChatContinueNewProject,
+): Promise<string> {
+	return requestContinuation(workspaceId, newProject);
 }

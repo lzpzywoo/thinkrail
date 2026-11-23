@@ -609,17 +609,17 @@ test("chat.continue with newProject creates a git repository, opens the project,
 
 	expect(existsSync(join(repoDir, ".git"))).toBe(true);
 	const createdProject = listProjects().find((project) => project.name === "Fresh API");
-	expect(createdProject).toBeTruthy();
+	if (!createdProject) throw new Error("expected created project to be open");
 
 	const status = await continuationStatus(operationId);
 	expect(status.phase).toBe("started");
-	expect(status.projectId).toBe(createdProject?.id);
+	expect(status.projectId).toBe(createdProject.id);
 	expect(status.workspaceId).toBeTruthy();
 	expect(status.sessionId).toBeTruthy();
 
 	const targetWorkspace = getWorkspace(status.workspaceId ?? "");
-	expect(targetWorkspace.projectId).toBe(createdProject?.id);
-	expect(targetWorkspace.isDefault).toBeFalsy();
+	expect(targetWorkspace.projectId).toBe(createdProject.id);
+	expect(targetWorkspace.worktreePath).not.toBe(createdProject.path);
 
 	await handleRequest("workspace.remove", { id: targetWorkspace.id }, CTX);
 	await handleRequest("chat.delete", { workspaceId: chat.workspace.id }, CTX);

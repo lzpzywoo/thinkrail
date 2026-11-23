@@ -1,4 +1,8 @@
-import type { ChatContinuation, ChatContinuationPhase } from "@thinkrail/contracts";
+import type {
+	ChatContinuation,
+	ChatContinuationPhase,
+	ChatContinueNewProject,
+} from "@thinkrail/contracts";
 import { t } from "@thinkrail/locales/react";
 import { useEffect } from "react";
 import { toast, useAppStore } from "@/store";
@@ -68,9 +72,16 @@ export function reconcileContinuations(): void {
 	for (const operationId of pending) refreshContinuation(operationId);
 }
 
-/** Asks the host to continue `workspaceId` in a new workspace of `projectId`; this client then follows it. */
-export async function requestContinuation(workspaceId: string, projectId: string): Promise<string> {
-	const { operationId } = await getTransport().request("chat.continue", { workspaceId, projectId });
+/** Asks the host to continue `workspaceId` in a new workspace of `target` (existing project id or new project to create); this client then follows it. */
+export async function requestContinuation(
+	workspaceId: string,
+	target: string | ChatContinueNewProject,
+): Promise<string> {
+	const params =
+		typeof target === "string"
+			? { workspaceId, projectId: target }
+			: { workspaceId, newProject: target };
+	const { operationId } = await getTransport().request("chat.continue", params);
 	useAppStore.getState().noteInitiatedContinuation(operationId);
 	return operationId;
 }
