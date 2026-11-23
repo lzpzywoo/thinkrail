@@ -339,3 +339,80 @@ test("a topbar Continue dialog closes when another window deletes its chat and t
 	await expect(page.getByTestId("scope-context")).toHaveAttribute("data-context", "chat");
 	await expect(dialog).toHaveCount(0);
 });
+
+test("Continue in workspace defaults to Create new project when no repositories are open and validates before creating", async ({
+	page,
+}) => {
+	const parentDir = join(E2E_DATA_DIR, "continue-new-empty-parent");
+	rmSync(parentDir, { recursive: true, force: true });
+	mkdirSync(parentDir, { recursive: true });
+	try {
+		await openAppFresh(page);
+		await page.getByTestId("welcome-new-chat").click();
+		await expect(page.getByTestId("chat-item")).toHaveCount(1);
+		await expect(page.getByTestId("scope-context")).toHaveAttribute("data-context", "chat");
+
+		await page.getByTestId("chat-item").getByTestId("chat-menu").click();
+		await page.getByTestId("chat-continue").click();
+		const dialog = page.getByTestId("continue-chat-dialog");
+		await expect(dialog).toBeVisible();
+		await expect(dialog.getByTestId("continue-chat-new-project-name")).toBeVisible();
+
+		await dialog.getByTestId("continue-chat-new-project-name").fill("Empty Guard");
+		await dialog.getByTestId("continue-chat-new-project-parent").fill(parentDir);
+		await expect(dialog.getByTestId("continue-chat-new-project-path")).toContainText("empty-guard");
+		await dialog.getByTestId("continue-chat-confirm").click();
+
+		await expect(dialog.getByTestId("continue-chat-error")).toBeVisible();
+		await expect(dialog).toBeVisible();
+		expect(existsSync(join(parentDir, "empty-guard"))).toBe(false);
+	} finally {
+		rmSync(parentDir, { recursive: true, force: true });
+	}
+});
+
+test("Continue in workspace can create a new git-backed project from the dropdown and start continuation", async ({
+	page,
+}) => {
+	const parentDir = join(E2E_DATA_DIR, "continue-new-ok-parent");
+	rmSync(parentDir, { recursive: true, force: true });
+	mkdirSync(parentDir, { recursive: true });
+	try {
+		await openFixtureProject(page);
+		const wire = await E2eWire.connect(Number(new URL(page.url()).port));
+		try {
+			const created: { workspace: Workspace } = await wire.request("chat.create", {});
+			seedWorkspaceSession(created.workspace.worktreePath, {
+				title: "New project brief",
+				userText: "Design a fresh service repo.",
+				assistantText: "Ready to bootstrap the service.",
+			});
+		} finally {
+			wire.close();
+		}
+		await page.getByTestId("chat-item").click();
+		await expect(page.getByTestId("scope-context")).toHaveAttribute("data-context", "chat");
+		await expect(page.locator('[data-testid="chat-message"][data-role="user"]')).toHaveCount(1);
+
+		await page.getByTestId("chat-item").getByTestId("chat-menu").click();
+		await page.getByTestId("chat-continue").click();
+		const dialog = page.getByTestId("continue-chat-dialog");
+		await expect(dialog).toBeVisible();
+		await dialog.getByTestId("continue-chat-project").click();
+		await page.getByTestId("continue-chat-new-project-option").click();
+		await dialog.getByTestId("continue-chat-new-project-name").fill("Fresh Service");
+		await dialog.getByTestId("continue-chat-new-project-parent").fill(parentDir);
+		await dialog.getByTestId("continue-chat-confirm").click();
+
+		await expect(dialog).toBeHidden();
+		expect(existsSync(join(parentDir, "fresh-service", ".git"))).toBe(true);
+		await expect(
+			page.getByTestId("project-item").filter({ hasText: "Fresh Service" }),
+		).toBeVisible();
+		const card = page.getByTestId("continuation-card");
+		await expect(card).toBeVisible({ timeout: 15_000 });
+		await expect(card).toContainText("Continue in workspace — Fresh Service");
+	} finally {
+		rmSync(parentDir, { recursive: true, force: true });
+	}
+});
