@@ -25,6 +25,7 @@ import {
 	CHATS_PROTOCOL_VERSION,
 	CLIENT_ERROR_REPORT_PROTOCOL_VERSION,
 	CONTEXT_WINDOW_SETTINGS_PROTOCOL_VERSION,
+	CONTINUE_NEW_PROJECT_PROTOCOL_VERSION,
 	CONTINUATION_PROTOCOL_VERSION,
 	CUSTOM_ENDPOINT_ID_PREFIX,
 	CUSTOM_ENDPOINTS_PROTOCOL_VERSION,
@@ -302,7 +303,7 @@ test("user-selectable fonts are pinned to v102", () => {
 
 test("host update checking is pinned to v125", () => {
 	expect(HOST_UPDATE_CHECK_PROTOCOL_VERSION).toBe(125);
-	expect(PROTOCOL_VERSION).toBe(125);
+	expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(HOST_UPDATE_CHECK_PROTOCOL_VERSION);
 	expect(WS_METHODS.hostCheckUpdates).toBe("host.checkUpdates");
 });
 
@@ -416,6 +417,12 @@ test("continue in workspace is pinned to v110", () => {
 	expect(WS_METHODS.chatContinue).toBe("chat.continue");
 	expect(WS_METHODS.chatContinuationStatus).toBe("chat.continuationStatus");
 	expect(WS_CHANNELS.chatContinuation).toBe("chat.continuation");
+});
+
+test("continue in a new project is pinned to v126", () => {
+	expect(PROTOCOL_VERSION).toBeGreaterThanOrEqual(CONTINUE_NEW_PROJECT_PROTOCOL_VERSION);
+	expect(CONTINUE_NEW_PROJECT_PROTOCOL_VERSION).toBe(126);
+	expect(CONTINUE_NEW_PROJECT_PROTOCOL_VERSION).toBeGreaterThan(CONTINUATION_PROTOCOL_VERSION);
 });
 
 test("chats without a project are pinned to v109", () => {

@@ -143,7 +143,8 @@ export type TemplateReadLocation =
 	| { projectId: string; workspaceId?: never }
 	| { workspaceId?: never; projectId?: never };
 
-export const PROTOCOL_VERSION = 125;
+export const PROTOCOL_VERSION = 126;
+export const CONTINUE_NEW_PROJECT_PROTOCOL_VERSION = 126;
 export const HOST_UPDATE_CHECK_PROTOCOL_VERSION = 125;
 export const ARTIFACT_ROLES_PROTOCOL_VERSION = 124;
 export const KEYBINDINGS_PROTOCOL_VERSION = 123;
@@ -961,6 +962,16 @@ export interface McpRenderedTarget {
 	expectedFingerprint: string;
 }
 
+export interface ChatContinueNewProject {
+	parentPath: string;
+	name: string;
+	displayName?: string;
+}
+
+export type ChatContinueParams =
+	| { workspaceId: string; projectId: string }
+	| { workspaceId: string; newProject: ChatContinueNewProject };
+
 export interface WsMethodMap {
 	"project.open": { params: { path: string }; result: Project };
 	"project.list": { params: Record<string, never>; result: Project[] };
@@ -1054,7 +1065,7 @@ export interface WsMethodMap {
 	"chat.delete": { params: { workspaceId: string }; result: Ack };
 	"chat.inspect": { params: { workspaceId: string }; result: ChatInspection };
 	"chat.continue": {
-		params: { workspaceId: string; projectId: string };
+		params: ChatContinueParams;
 		result: { operationId: string };
 	};
 	"chat.continuationStatus": { params: { operationId: string }; result: ChatContinuation };
