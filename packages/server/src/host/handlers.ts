@@ -871,7 +871,10 @@ const handlers: WsHandlers = {
 		return { ok: true } as const;
 	},
 	"chat.inspect": (params) => inspectChat(params.workspaceId),
-	"chat.continue": (params) => startContinuation(params.workspaceId, params.projectId),
+	"chat.continue": (params) =>
+		"newProject" in params
+			? startContinuation(params.workspaceId, params.newProject)
+			: startContinuation(params.workspaceId, params.projectId),
 	"chat.continuationStatus": (params) => continuationStatus(params.operationId),
 	"workspace.openIn": async (p) => {
 		await openEditor(p.editor, getWorkspace(p.id).worktreePath);

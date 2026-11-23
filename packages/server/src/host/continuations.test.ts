@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { InMemoryCredentialStore } from "@earendil-works/pi-ai";
@@ -30,7 +30,7 @@ import {
 	settleSessionsForShutdown,
 } from "../agent";
 import { loadChats } from "../persistence";
-import { openProject } from "../projects";
+import { listProjects, openProject } from "../projects";
 import { resetConfigCache } from "../settings";
 import { setTrashImplementationForTests } from "../trash";
 import { stopAllWatches } from "../watch";
@@ -561,5 +561,107 @@ test("a project closed between the gesture and the tool fails the operation befo
 		reason: "The project is no longer open.",
 	});
 	expect(published.some((push) => push.workspaceId !== undefined)).toBe(false);
+	await handleRequest("chat.delete", { workspaceId: chat.workspace.id }, CTX);
+}, 60_000);
+
+test("chat.continue with newProject validates the source chat before creating any folder or git repo", async () => {
+	const parentPath = join(root, "new-projects-guard");
+	mkdirSync(parentPath, { recursive: true });
+	const empty = (await handleRequest("chat.create", {}, CTX)) as ChatCreateResult;
+	const targetDir = join(parentPath, "should-not-exist");
+	await expect(
+		handleRequest(
+			"chat.continue",
+			{
+				workspaceId: empty.workspace.id,
+				newProject: { parentPath, name: "should-not-exist", displayName: "Should Not Exist" },
+			},
+			CTX,
+		),
+	).rejects.toMatchObject({ code: "NOT_A_CHAT" });
+	expect(existsSync(targetDir)).toBe(false);
+	expect(listProjects().some((project) => project.name === "Should Not Exist")).toBe(false);
+	expect(published).toEqual([]);
+	await handleRequest("chat.delete", { workspaceId: empty.workspace.id }, CTX);
+}, 60_000);
+
+test("chat.continue with newProject creates a git repository, opens the project, and hands off into a new workspace", async () => {
+	const parentPath = join(root, "new-projects-ok");
+	mkdirSync(parentPath, { recursive: true });
+	const chat = await promptedChat();
+	const repoDir = join(parentPath, "fresh-api");
+
+	faux.setResponses([
+		fauxAssistantMessage([continueCall("Build the fresh API service.")]),
+		fauxAssistantMessage("Handed off."),
+		fauxAssistantMessage("Ready to build the fresh API service."),
+	]);
+	const settled = nextSettle(chat.sessionId);
+	const { operationId } = (await handleRequest(
+		"chat.continue",
+		{
+			workspaceId: chat.workspace.id,
+			newProject: { parentPath, name: "fresh-api", displayName: "Fresh API" },
+		},
+		CTX,
+	)) as { operationId: string };
+	await settled;
+
+	expect(existsSync(join(repoDir, ".git"))).toBe(true);
+	const createdProject = listProjects().find((project) => project.name === "Fresh API");
+	expect(createdProject).toBeTruthy();
+
+	const status = await continuationStatus(operationId);
+	expect(status.phase).toBe("started");
+	expect(status.projectId).toBe(createdProject?.id);
+	expect(status.workspaceId).toBeTruthy();
+	expect(status.sessionId).toBeTruthy();
+
+	const targetWorkspace = getWorkspace(status.workspaceId ?? "");
+	expect(targetWorkspace.projectId).toBe(createdProject?.id);
+	expect(targetWorkspace.isDefault).toBeFalsy();
+
+	await handleRequest("workspace.remove", { id: targetWorkspace.id }, CTX);
+	await handleRequest("chat.delete", { workspaceId: chat.workspace.id }, CTX);
+}, 60_000);
+
+test("chat.continue with newProject refuses a non-empty folder without leaving a stuck continuation", async () => {
+	const parentPath = join(root, "new-projects-conflict");
+	const occupied = join(parentPath, "taken");
+	mkdirSync(occupied, { recursive: true });
+	writeFileSync(join(occupied, "file.txt"), "existing");
+	const chat = await promptedChat();
+
+	await expect(
+		handleRequest(
+			"chat.continue",
+			{
+				workspaceId: chat.workspace.id,
+				newProject: { parentPath, name: "taken", displayName: "Taken" },
+			},
+			CTX,
+		),
+	).rejects.toThrow("already exists and isn't empty");
+	expect(published).toEqual([]);
+
+	// A subsequent valid gesture for the same chat still succeeds (no stuck admission).
+	faux.setResponses([
+		fauxAssistantMessage([continueCall("Recovered brief.")]),
+		fauxAssistantMessage("Done."),
+		fauxAssistantMessage("Picked up."),
+	]);
+	const settled = nextSettle(chat.sessionId);
+	const { operationId } = (await handleRequest(
+		"chat.continue",
+		{
+			workspaceId: chat.workspace.id,
+			newProject: { parentPath, name: "available", displayName: "Available" },
+		},
+		CTX,
+	)) as { operationId: string };
+	await settled;
+	const status = await continuationStatus(operationId);
+	expect(status.phase).toBe("started");
+	await handleRequest("workspace.remove", { id: status.workspaceId ?? "" }, CTX);
 	await handleRequest("chat.delete", { workspaceId: chat.workspace.id }, CTX);
 }, 60_000);

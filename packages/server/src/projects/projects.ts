@@ -566,7 +566,8 @@ async function bootstrapRepository(path: string): Promise<void> {
 	const createdGitDir = !existsSync(gitDir);
 	const indexWrite = { timeoutMs: INDEX_WRITE_TIMEOUT_MS ?? Number.POSITIVE_INFINITY };
 	try {
-		await bootstrapStep(path, "git init", ["init", "-b", "main"]);
+		await bootstrapStep(path, "git init", ["init"]);
+		await bootstrapStep(path, "git symbolic-ref", ["symbolic-ref", "HEAD", "refs/heads/main"]);
 		await bootstrapStep(path, "git add", ["add", "-A"], indexWrite);
 
 		const identity: string[] = [];

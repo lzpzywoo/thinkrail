@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
 	ChatContinuation,
+	ChatContinueNewProject,
 	ChatHandoffDetails,
 	ContinueInWorkspaceRequestDetails,
 	PiEvent,
@@ -21,7 +22,7 @@ import {
 	sendHostMessageToSession,
 } from "../agent";
 import { logger } from "../log";
-import { listProjects } from "../projects";
+import { createProject, listProjects } from "../projects";
 import {
 	chatWorkspaces,
 	createWorkspace,
@@ -53,7 +54,10 @@ interface Operation {
 const operations = new Map<string, Operation>();
 const bySource = new Map<string, string>();
 /** A gesture still being admitted, per source chat: a concurrent gesture for its project joins it instead of racing it. */
-const admissions = new Map<string, { projectId: string; done: Promise<{ operationId: string }> }>();
+const admissions = new Map<
+	string,
+	{ projectId: string | null; label: string; done: Promise<{ operationId: string }> }
+>();
 let publish: Publisher | null = null;
 
 export function setContinuationPublisher(next: Publisher | null): void {
@@ -80,9 +84,11 @@ function inFlight({ state }: Operation): boolean {
 }
 
 /** A second gesture for another project is refused rather than silently following the first. */
-function continuingElsewhere(projectId: string): CodedError {
+function continuingElsewhere(projectId: string | null, fallbackLabel?: string): CodedError {
 	const name =
-		listProjects().find((project) => project.id === projectId)?.name ?? "another project";
+		(projectId ? listProjects().find((project) => project.id === projectId)?.name : undefined) ??
+		fallbackLabel ??
+		"another project";
 	return new CodedError(
 		"CONTINUATION_IN_FLIGHT",
 		`This chat is already being continued in ${name}.`,
@@ -129,29 +135,36 @@ function handoffText(details: ChatHandoffDetails): string {
  */
 export function startContinuation(
 	sourceWorkspaceId: string,
-	projectId: string,
+	target: string | ChatContinueNewProject,
 ): Promise<{ operationId: string }> {
 	const admitting = admissions.get(sourceWorkspaceId);
 	if (admitting) {
-		return admitting.projectId === projectId
+		return typeof target === "string" && admitting.projectId === target
 			? admitting.done
-			: Promise.reject(continuingElsewhere(admitting.projectId));
+			: Promise.reject(continuingElsewhere(admitting.projectId, admitting.label));
 	}
-	const done = admitContinuation(sourceWorkspaceId, projectId).finally(() => {
+	const projectId = typeof target === "string" ? target : null;
+	const label =
+		typeof target === "string"
+			? target
+			: target.displayName?.trim() || target.name.trim() || "a new project";
+	const done = admitContinuation(sourceWorkspaceId, target).finally(() => {
 		if (admissions.get(sourceWorkspaceId)?.done === done) admissions.delete(sourceWorkspaceId);
 	});
-	admissions.set(sourceWorkspaceId, { projectId, done });
+	admissions.set(sourceWorkspaceId, { projectId, label, done });
 	return done;
 }
 
 async function admitContinuation(
 	sourceWorkspaceId: string,
-	projectId: string,
+	target: string | ChatContinueNewProject,
 ): Promise<{ operationId: string }> {
 	const source = getChatWorkspace(sourceWorkspaceId);
 	assertChatOpen(source.id);
-	const project = openRepository(projectId);
-	if (!project) throw new CodedError("CHATS_CONTAINER", "Pick an open project to continue in.");
+	const existingProject = typeof target === "string" ? openRepository(target) : null;
+	if (typeof target === "string" && !existingProject) {
+		throw new CodedError("CHATS_CONTAINER", "Pick an open project to continue in.");
+	}
 	const summary = (await listSessions(source.id, source.worktreePath))[0];
 	assertChatOpen(source.id);
 	if (!summary || summary.messageCount === 0) {
@@ -160,9 +173,10 @@ async function admitContinuation(
 	const sourceSessionId = summary.sessionId;
 	const previous = boundTo(sourceSessionId);
 	if (previous && inFlight(previous)) {
-		if (previous.state.projectId !== project.id)
-			throw continuingElsewhere(previous.state.projectId);
-		return { operationId: previous.state.operationId };
+		if (typeof target === "string" && previous.state.projectId === target) {
+			return { operationId: previous.state.operationId };
+		}
+		throw continuingElsewhere(previous.state.projectId);
 	}
 	if (
 		getSessionWorkspaceId(sourceSessionId) === undefined &&
@@ -171,6 +185,15 @@ async function admitContinuation(
 		throw new CodedError("NOT_A_CHAT", "This chat's conversation could not be opened.");
 	}
 	assertChatOpen(source.id);
+	let project: Project;
+	if (typeof target === "string") {
+		const current = openRepository(target);
+		if (!current) throw new CodedError("CHATS_CONTAINER", "Pick an open project to continue in.");
+		project = current;
+	} else {
+		project = await createProject(target.parentPath, target.name, target.displayName);
+		assertChatOpen(source.id);
+	}
 	const leftover =
 		previous?.state.phase === "failed" &&
 		previous.state.projectId === project.id &&
